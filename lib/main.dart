@@ -1,4 +1,5 @@
 import "package:flutter/material.dart";
+import "package:khizanah/pages/home.dart";
 
 void main() {
   runApp(const App());
@@ -9,6 +10,7 @@ class App extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Placeholder();
+    return MaterialApp(
+        debugShowCheckedModeBanner: false, home: Center(child: Home()));
   }
 }
