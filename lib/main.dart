@@ -2,6 +2,7 @@ import "package:flutter/material.dart";
 import "package:khizanah/pages/home.dart";
 import "package:khizanah/pages/themes.dart";
 
+// Todo: add logging
 void main() {
   runApp(const App());
 }

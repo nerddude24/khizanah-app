@@ -2,14 +2,14 @@ import "dart:io";
 
 import "package:file_picker/file_picker.dart";
 import "package:flutter/material.dart";
-import "package:khizanah/pages/themes.dart";
+import "package:khizanah/pages/logic.dart";
 import "package:path_provider/path_provider.dart";
 import "package:shared_preferences/shared_preferences.dart";
+import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
-// 'Video' is both video and audio, while 'Audio' is audio-only.
-enum DownloadType { Video, Audio }
+import "package:khizanah/pages/themes.dart";
 
-enum LogicState { WaitingForInput, Downloading }
+enum AppState { WaitingForInput, Downloading }
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -19,12 +19,12 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
+  String? outputDir = "";
   String vidLink = "";
-  DownloadType? vidType = DownloadType.Video;
-  String? downloadFolder = "";
+  DownloadType vidType = DownloadType.Video;
   bool isSelectingDownloadFolder = false;
   bool isSetup = false;
-  LogicState currentState = LogicState.WaitingForInput;
+  AppState currentState = AppState.WaitingForInput;
 
   setup() async {
     isSetup = true;
@@ -37,37 +37,67 @@ class _HomeState extends State<Home> {
       // if not, set it to the download dir. else, it will be null.
       // when it's null, a check will fail in the download phase and
       // it will abort and alert the user.
-      downloadFolder =
+      outputDir =
           prevSelectedDir != null ? prevSelectedDir : platformDownloadDir?.path;
     });
   }
 
-  startDownload() {
+  startDownload() async {
     setState(() {
-      currentState = LogicState.Downloading;
+      currentState = AppState.Downloading;
     });
-    // ! Todo: download the video/videos while checking for existing ones.
+
+    final linkType = analyzeYouTubeLink(vidLink);
+    bool isSuccessful;
+
+    if (linkType == YouTubeLinkType.unknown)
+      throw ErrorDescription("invalid link");
+    else if (linkType == YouTubeLinkType.video)
+      isSuccessful = await downloadVideo(vidLink, vidType, outputDir!);
+    else
+      isSuccessful = await downloadPlaylist(vidLink, vidType, outputDir!);
+
+    if (!isSuccessful)
+      showAppDialog(
+          "حدث خطأ أثناء التحميل", "رجاءًا تأكد من رابط المقطع ومن الإنترنت.");
+    else
+      showAppDialog("الحمد لله", "تم تحميل المقطع بنجاح!");
+
+    setState(() {
+      currentState = AppState.WaitingForInput;
+    });
   }
 
-  onDownloadBtnClick() {
-    if (currentState == LogicState.Downloading) return;
+  onDownloadBtnClick() async {
+    if (currentState == AppState.Downloading) return;
     if (vidLink.trim() == "") return;
 
     // check if download folder is valid
     try {
-      if (Directory(downloadFolder!).existsSync()) return;
+      if (!Directory(outputDir!).existsSync()) return;
     } catch (err) {
       setState(() {
-        downloadFolder = null;
+        outputDir = null;
       });
       showAppDialog(
           "حدث خطأ في التطبيق", "!رجاءًا اختر مجلدًا آخرًا لتحميل الملفات");
     }
 
-    // ! Todo: check vidLink validity.
-    // ! Todo: ask user for confirmation.
-
-    setState(() {});
+    showAppDialog("هل أنت متأكد", "", buttons: [
+      TextButton(
+        onPressed: () => Navigator.of(context).pop(),
+        child: Text("إلغاء", style: SmallTxt),
+      ),
+      TextButton(
+        onPressed: () {
+          Navigator.of(context).pop();
+          startDownload();
+        },
+        child: Text("تأكيد", style: SmallTxt.copyWith(color: Colors.green)),
+        style:
+            TextButton.styleFrom(padding: EdgeInsets.fromLTRB(20, 15, 20, 15)),
+      )
+    ]);
   }
 
   void showAppDialog(String title, String desc, {List<Widget>? buttons}) {
@@ -76,7 +106,7 @@ class _HomeState extends State<Home> {
         builder: (context) => AlertDialog(
               title: Text(
                 title,
-                style: MediumTxt,
+                style: SmallTxt.copyWith(fontWeight: FontWeight.w600),
               ),
               content: Text(
                 desc,
@@ -103,7 +133,7 @@ class _HomeState extends State<Home> {
 
     final SharedPreferencesAsync prefs = SharedPreferencesAsync();
     final String? SelectedDir = await FilePicker.platform.getDirectoryPath(
-      initialDirectory: downloadFolder,
+      initialDirectory: outputDir,
       lockParentWindow: true,
     );
 
@@ -111,7 +141,7 @@ class _HomeState extends State<Home> {
       await prefs.setString("output_dir", SelectedDir);
 
       setState(() {
-        downloadFolder = SelectedDir;
+        outputDir = SelectedDir;
       });
     }
 
@@ -138,7 +168,7 @@ class _HomeState extends State<Home> {
               VerticalSpace(50),
               SubmitButton(),
               VerticalSpace(10),
-              Text("$downloadFolder :إلى",
+              Text("$outputDir :إلى",
                   textDirection: TextDirection.ltr, style: SmallTxt),
             ],
           ),
@@ -160,15 +190,17 @@ class _HomeState extends State<Home> {
     );
   }
 
-  SubmitButton() {
+  ElevatedButton SubmitButton() {
+    final isEnabled = currentState == AppState.WaitingForInput;
     return ElevatedButton(
-      onPressed: onDownloadBtnClick,
-      child: Text("تحميل", style: MediumTxt),
-      style: ButtonStyle(
-          backgroundColor: WidgetStatePropertyAll(Colors.red[700]),
-          surfaceTintColor: WidgetStatePropertyAll(Colors.black),
-          padding: WidgetStatePropertyAll(EdgeInsets.fromLTRB(60, 20, 60, 20)),
-          elevation: WidgetStatePropertyAll(24)),
+      onPressed: isEnabled ? onDownloadBtnClick : null,
+      child: Text(isEnabled ? "تحميل" : "...", style: MediumTxt),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.red[700],
+        surfaceTintColor: Colors.black,
+        padding: EdgeInsets.fromLTRB(60, 20, 60, 20),
+        elevation: 24,
+      ),
     );
   }
 
@@ -211,7 +243,7 @@ class _HomeState extends State<Home> {
         ),
         onChanged: (value) => setState(() {
           vidLink = value;
-          currentState = LogicState.WaitingForInput;
+          currentState = AppState.WaitingForInput;
         }),
       ),
     );
@@ -226,8 +258,8 @@ class _HomeState extends State<Home> {
       fillColor: WidgetStatePropertyAll(Colors.red),
       onChanged: (DownloadType? val) {
         setState(() {
-          vidType = val;
-          currentState = LogicState.WaitingForInput;
+          vidType = val!;
+          currentState = AppState.WaitingForInput;
         });
       },
     );
