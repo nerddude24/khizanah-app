@@ -33,7 +33,7 @@ class _HomeState extends State<Home> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              LinkTextField(),
+              YtLinkTextField(),
               VerticalSpace(10),
               VidTypeInput(),
               VerticalSpace(50),
@@ -74,13 +74,13 @@ class _HomeState extends State<Home> {
     );
   }
 
-  Container LinkTextField() {
+  Container YtLinkTextField() {
     return Container(
       width: 700,
       decoration: BoxDecoration(boxShadow: [
         BoxShadow(
           color: Colors.black.withOpacity(0.6),
-          blurRadius: 32,
+          blurRadius: 24,
           spreadRadius: 0,
         )
       ]),

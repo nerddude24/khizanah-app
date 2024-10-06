@@ -7,6 +7,9 @@
 
 #include "flutter/generated_plugin_registrant.h"
 
+#define WINDOW_WIDTH 800
+#define WINDOW_HEIGHT 500
+
 struct _MyApplication {
   GtkApplication parent_instance;
   char** dart_entrypoint_arguments;
@@ -47,7 +50,7 @@ static void my_application_activate(GApplication* application) {
     gtk_window_set_title(window, "khizanah");
   }
 
-  gtk_window_set_default_size(window, 1280, 720);
+  gtk_window_set_default_size(window, WINDOW_WIDTH, WINDOW_HEIGHT);
   gtk_widget_show(GTK_WIDGET(window));
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
