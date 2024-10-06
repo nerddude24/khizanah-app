@@ -15,18 +15,18 @@ YouTubeLinkType analyzeYouTubeLink(String url) {
     return YouTubeLinkType.unknown;
   }
 
-  // Check for playlist links
-  if (uri.queryParameters.containsKey('list') ||
-      uri.pathSegments.contains('playlist')) {
-    return YouTubeLinkType.playlist;
-  }
-
   // Check for video links
   if (uri.host == 'youtu.be' ||
       uri.pathSegments.contains('watch') ||
       uri.pathSegments.contains('v') ||
       uri.pathSegments.contains('embed')) {
     return YouTubeLinkType.video;
+  }
+
+  // Check for playlist links
+  if (uri.queryParameters.containsKey('list') ||
+      uri.pathSegments.contains('playlist')) {
+    return YouTubeLinkType.playlist;
   }
 
   return YouTubeLinkType.unknown;
