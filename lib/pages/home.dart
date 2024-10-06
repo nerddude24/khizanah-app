@@ -9,7 +9,7 @@ import "package:shared_preferences/shared_preferences.dart";
 // 'Video' is both video and audio, while 'Audio' is audio-only.
 enum DownloadType { Video, Audio }
 
-enum LogicState { WaitingForInput, Confirmation, Downloading }
+enum LogicState { WaitingForInput, Downloading }
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -50,15 +50,51 @@ class _HomeState extends State<Home> {
   }
 
   onDownloadBtnClick() {
-    if (currentState == LogicState.Confirmation) return startDownload();
     if (currentState == LogicState.Downloading) return;
     if (vidLink.trim() == "") return;
-    // ! Todo: check downloadFolder validity.
+
+    // check if download folder is valid
+    try {
+      if (Directory(downloadFolder!).existsSync()) return;
+    } catch (err) {
+      setState(() {
+        downloadFolder = null;
+      });
+      showAppDialog(
+          "حدث خطأ في التطبيق", "!رجاءًا اختر مجلدًا آخرًا لتحميل الملفات");
+    }
 
     // ! Todo: check vidLink validity.
     // ! Todo: ask user for confirmation.
 
     setState(() {});
+  }
+
+  void showAppDialog(String title, String desc, {List<Widget>? buttons}) {
+    showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+              title: Text(
+                title,
+                style: MediumTxt,
+              ),
+              content: Text(
+                desc,
+                style: SmallTxt,
+              ),
+              actions: buttons != null
+                  ? buttons
+                  : [
+                      TextButton(
+                        child: Text(
+                          "حسنا",
+                          style: SmallTxt.copyWith(color: Colors.red),
+                        ),
+                        onPressed: () => Navigator.of(context).pop(),
+                      )
+                    ],
+              elevation: 24,
+            ));
   }
 
   startSelectDownloadFolder() async {
@@ -102,7 +138,8 @@ class _HomeState extends State<Home> {
               VerticalSpace(50),
               SubmitButton(),
               VerticalSpace(10),
-              Text("$downloadFolder", style: SmallTxt),
+              Text("$downloadFolder :إلى",
+                  textDirection: TextDirection.ltr, style: SmallTxt),
             ],
           ),
         ),
@@ -117,22 +154,21 @@ class _HomeState extends State<Home> {
       backgroundColor: Colors.black45,
       foregroundColor: Colors.white,
       tooltip: "اختر مجلدًا لتخزين المقاطع",
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: Colors.white60)),
     );
   }
 
-  SizedBox VerticalSpace(double space) {
-    return SizedBox(height: space);
-  }
-
   SubmitButton() {
-    return OutlinedButton(
+    return ElevatedButton(
       onPressed: onDownloadBtnClick,
       child: Text("تحميل", style: MediumTxt),
       style: ButtonStyle(
-        backgroundColor: WidgetStatePropertyAll(Colors.red[700]),
-        surfaceTintColor: WidgetStatePropertyAll(Colors.black),
-        padding: WidgetStatePropertyAll(EdgeInsets.fromLTRB(60, 20, 60, 20)),
-      ),
+          backgroundColor: WidgetStatePropertyAll(Colors.red[700]),
+          surfaceTintColor: WidgetStatePropertyAll(Colors.black),
+          padding: WidgetStatePropertyAll(EdgeInsets.fromLTRB(60, 20, 60, 20)),
+          elevation: WidgetStatePropertyAll(24)),
     );
   }
 
@@ -140,7 +176,8 @@ class _HomeState extends State<Home> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Text("تحميل على شكل: ", style: MediumTxt),
+        Text("تحميل على هيئة: ", style: SmallTxt),
+        HorizontalSpace(20),
         Text("فيديو", style: SmallTxt),
         VidTypeRadio(DownloadType.Video),
         Text("صوتية", style: SmallTxt),
@@ -201,10 +238,10 @@ class _HomeState extends State<Home> {
       backgroundColor: Color(0xff1a1c1e),
       foregroundColor: Colors.white,
       centerTitle: true,
-      toolbarHeight: 100,
+      toolbarHeight: 80,
       title: const Text(
         "خِزانة",
-        style: TextStyle(fontSize: 64, fontWeight: FontWeight.w700),
+        style: TextStyle(fontSize: 48, fontWeight: FontWeight.w700),
       ),
     );
   }

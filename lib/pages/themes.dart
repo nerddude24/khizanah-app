@@ -13,3 +13,11 @@ final AppThemeData = ThemeData(
   tooltipTheme:
       TooltipThemeData(textStyle: XSmallTxt.copyWith(color: Colors.black)),
 );
+
+SizedBox VerticalSpace(double space) {
+  return SizedBox(height: space);
+}
+
+SizedBox HorizontalSpace(double space) {
+  return SizedBox(width: space);
+}
