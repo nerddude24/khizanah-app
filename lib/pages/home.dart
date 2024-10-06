@@ -5,7 +5,6 @@ import "package:flutter/material.dart";
 import "package:khizanah/pages/logic.dart";
 import "package:path_provider/path_provider.dart";
 import "package:shared_preferences/shared_preferences.dart";
-import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
 import "package:khizanah/pages/themes.dart";
 
@@ -51,7 +50,7 @@ class _HomeState extends State<Home> {
     bool isSuccessful;
 
     if (linkType == YouTubeLinkType.unknown)
-      throw ErrorDescription("invalid link");
+      isSuccessful = false;
     else if (linkType == YouTubeLinkType.video)
       isSuccessful = await downloadVideo(vidLink, vidType, outputDir!);
     else
@@ -194,7 +193,7 @@ class _HomeState extends State<Home> {
     final isEnabled = currentState == AppState.WaitingForInput;
     return ElevatedButton(
       onPressed: isEnabled ? onDownloadBtnClick : null,
-      child: Text(isEnabled ? "تحميل" : "...", style: MediumTxt),
+      child: Text(isEnabled ? "تحميل" : "يتم التحميل...", style: MediumTxt),
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.red[700],
         surfaceTintColor: Colors.black,

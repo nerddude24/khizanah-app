@@ -52,13 +52,22 @@ Future<bool> downloadVideo(
 
     // Set the path
     final fileName = "${video.title}.${streamInfo.container.name}";
+    final fullPath = "$outputDir/$fileName";
 
-    // Open a file for writing.
-    final file = File("$outputDir/$fileName");
+    // Open a file for writing and check if it already exists.
+    final file = File(fullPath);
+    if (file.existsSync()) {
+      if (file.lengthSync() == streamInfo.size.totalBytes)
+        return true;
+      else
+        file.deleteSync();
+    }
     final fileStream = file.openWrite();
 
     // Pipe all the content of the stream into the file.
-    await stream.pipe(fileStream); // Close the file.
+    await stream.pipe(fileStream);
+
+    // Close the file.
     await fileStream.flush();
     await fileStream.close();
   } catch (_) {
@@ -72,6 +81,57 @@ Future<bool> downloadVideo(
   return true;
 }
 
-bool downloadPlaylist(String url, DownloadType vidType, String outputDir) {
+Future<bool> downloadPlaylist(
+    String url, DownloadType vidType, String outputDir) async {
+  final YoutubeExplode yt = YoutubeExplode();
+
+  try {
+    final playlist = await yt.playlists.get(url);
+    final path = "$outputDir/${playlist.title}";
+    Directory(path).createSync();
+
+    await for (final video in yt.playlists.getVideos(playlist.id)) {
+      final streamManifest =
+          await yt.videos.streamsClient.getManifest(video.id);
+      StreamInfo streamInfo;
+
+      if (vidType == DownloadType.Video)
+        streamInfo = streamManifest.muxed.withHighestBitrate();
+      else
+        streamInfo = streamManifest.audioOnly.withHighestBitrate();
+
+      // Get the actual stream
+      final stream = yt.videos.streamsClient.get(streamInfo);
+
+      // Set the path
+      final fileName = "${video.title}.${streamInfo.container.name}";
+      final fullPath = "$path/$fileName";
+
+      // Open a file for writing and check if it already exists.
+      final file = File(fullPath);
+      if (file.existsSync()) {
+        if (file.lengthSync() == streamInfo.size.totalBytes)
+          return true;
+        else
+          file.deleteSync();
+      }
+
+      final fileStream = file.openWrite();
+
+      // Pipe all the content of the stream into the file.
+      await stream.pipe(fileStream);
+
+      // Close the file.
+      await fileStream.flush();
+      await fileStream.close();
+    }
+  } catch (_) {
+    // Todo: log errors
+
+    yt.close();
+    return false;
+  }
+
+  yt.close();
   return true;
 }
