@@ -19,13 +19,16 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
+  // * App state variables
   String appVersion = "";
   String? outputDir = "";
   String vidLink = "";
   DownloadType vidType = DownloadType.Video;
   bool isSetup = false;
   AppState currentState = AppState.WaitingForInput;
-  double? downloadedProgress = null; // downloaded vids / all vids
+
+  // if it's null the progress bar will become indeterminate (repeating scroll animation)
+  double? downloadedProgress = null;
 
   @override
   Widget build(BuildContext context) {
@@ -56,6 +59,7 @@ class _HomeState extends State<Home> {
               ],
             ),
           ),
+          // app version text
           Positioned(
             right: 10,
             bottom: 10,
@@ -86,7 +90,7 @@ class _HomeState extends State<Home> {
 
     setState(() {
       // set download dir as prev selected dir if possible.
-      // if not, set it to the download dir. else, it will be null.
+      // if not, set it to the platform download dir. else, it will be null.
       // when it's null, a check will fail in the download phase and
       // it will abort and alert the user.
       outputDir =
@@ -97,17 +101,13 @@ class _HomeState extends State<Home> {
   }
 
   void startDownload() async {
-    setState(() {
-      currentState = AppState.Downloading;
-    });
+    setState(() => currentState = AppState.Downloading);
 
     // check if link is valid and if it's audio or video.
     final linkType = analyzeYouTubeLink(vidLink);
     // used for later displays.
     bool isSuccessful;
-    setState(() {
-      downloadedProgress = null;
-    });
+    setState(() => downloadedProgress = null);
 
     if (linkType == YouTubeLinkType.unknown)
       isSuccessful = false;
@@ -124,9 +124,7 @@ class _HomeState extends State<Home> {
     else
       showAppDialog("الحمد لله", "تم تحميل المقطع بنجاح!");
 
-    setState(() {
-      currentState = AppState.WaitingForInput;
-    });
+    setState(() => currentState = AppState.WaitingForInput);
   }
 
   void onDownloadBtnClick() async {
@@ -134,15 +132,11 @@ class _HomeState extends State<Home> {
     // check if link is empty.
     if (vidLink.trim() == "") return;
 
-    // check if download folder is valid
-    try {
-      if (!Directory(outputDir!).existsSync()) return;
-    } catch (err) {
-      setState(() {
-        outputDir = null;
-      });
+    // check if download folder exists
+    if (outputDir == null || !Directory(outputDir!).existsSync()) {
       showAppDialog(
-          "حدث خطأ في التطبيق", "!رجاءًا اختر مجلدًا آخرًا لتحميل الملفات");
+          "حدث خطأ في التطبيق", "!رجاءًا اختر مجلدًا صحيحًا لتحميل الملفات");
+      return;
     }
 
     // confirmation dialog.
@@ -201,7 +195,7 @@ class _HomeState extends State<Home> {
       lockParentWindow: true,
     );
 
-    // save dir to prefs only if it's valid.
+    // save new dir only if it's valid.
     if (SelectedDir != null) {
       await prefs.setString("output_dir", SelectedDir);
 

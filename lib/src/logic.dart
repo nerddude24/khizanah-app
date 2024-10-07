@@ -55,27 +55,26 @@ Future<bool> download(
     final stream = yt.videos.streamsClient.get(streamInfo);
 
     // Set the path
-    final fileName = "${video.title}.${streamInfo.container.name}";
+    final fileExtension = streamInfo.container.name;
+    final fileName = "${video.title}.$fileExtension";
     final fullPath = "$outputDir/$fileName";
 
-    // Open a file for writing and check if it already exists.
+    // Open file with the full path.
     final file = File(fullPath);
-    if (file.existsSync()) {
-      if (file.lengthSync() == streamInfo.size.totalBytes)
-        return true;
-      else
-        file.deleteSync();
-    }
-    final fileStream = file.openWrite();
+
+    if (await file.exists() &&
+        await file.length() >= streamInfo.size.totalBytes)
+      return true; // video of this quality or higher is already downloaded.
 
     // Pipe all the content of the stream into the file.
+    final fileStream = file.openWrite(mode: FileMode.writeOnly);
     await stream.pipe(fileStream);
 
     // Close the file.
     await fileStream.flush();
     await fileStream.close();
     return true;
-  } catch (_) {
+  } catch (err) {
     return false;
   }
 }
@@ -106,6 +105,8 @@ Future<bool> startDownloadPlaylist(
     int downloaded = 0;
     await for (final video in yt.playlists.getVideos(playlist.id)) {
       await download(yt, url, vidType, playlistOutputDir, vid: video);
+
+      // progress bar
       downloaded++;
       if (playlistSize != null) updateProgressFn(downloaded / playlistSize);
     }
