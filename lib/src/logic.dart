@@ -91,17 +91,23 @@ Future<bool> startDownloadVideo(
 }
 
 Future<bool> startDownloadPlaylist(
-    String url, DownloadType vidType, String outputDir) async {
+    String url, DownloadType vidType, String outputDir,
+    {required Function(double progress) updateProgressFn}) async {
   final YoutubeExplode yt = YoutubeExplode();
+  updateProgressFn(0);
 
   try {
-    final playlist = await yt.playlists.get(url);
-    final playlistOutputDir = "$outputDir/${playlist.title}";
+    final Playlist playlist = await yt.playlists.get(url);
+    final String playlistOutputDir = "$outputDir/${playlist.title}";
     if (!Directory(playlistOutputDir).existsSync())
       Directory(playlistOutputDir).createSync();
 
+    final int? playlistSize = playlist.videoCount;
+    int downloaded = 0;
     await for (final video in yt.playlists.getVideos(playlist.id)) {
       await download(yt, url, vidType, playlistOutputDir, vid: video);
+      downloaded++;
+      if (playlistSize != null) updateProgressFn(downloaded / playlistSize);
     }
   } catch (err) {
     yt.close();

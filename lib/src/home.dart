@@ -2,11 +2,11 @@ import "dart:io";
 
 import "package:file_picker/file_picker.dart";
 import "package:flutter/material.dart";
-import "package:khizanah/pages/logic.dart";
+import "package:khizanah/src/logic.dart";
 import "package:path_provider/path_provider.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
-import "package:khizanah/pages/themes.dart";
+import "package:khizanah/src/theme.dart";
 
 enum AppState { WaitingForInput, SelectingDownloadFolder, Downloading }
 
@@ -23,6 +23,7 @@ class _HomeState extends State<Home> {
   DownloadType vidType = DownloadType.Video;
   bool isSetup = false;
   AppState currentState = AppState.WaitingForInput;
+  double? downloadedProgress = null; // downloaded vids / all vids
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +43,9 @@ class _HomeState extends State<Home> {
               VerticalSpace(10),
               VidTypeInput(),
               VerticalSpace(50),
-              SubmitButton(),
+              currentState == AppState.Downloading
+                  ? ProgressBar()
+                  : SubmitButton(),
               VerticalSpace(10),
               Text("$outputDir :إلى",
                   textDirection: TextDirection.ltr, style: SmallTxt),
@@ -82,13 +85,18 @@ class _HomeState extends State<Home> {
     final linkType = analyzeYouTubeLink(vidLink);
     // used for later displays.
     bool isSuccessful;
+    setState(() {
+      downloadedProgress = null;
+    });
 
     if (linkType == YouTubeLinkType.unknown)
       isSuccessful = false;
     else if (linkType == YouTubeLinkType.video)
       isSuccessful = await startDownloadVideo(vidLink, vidType, outputDir!);
     else
-      isSuccessful = await startDownloadPlaylist(vidLink, vidType, outputDir!);
+      isSuccessful = await startDownloadPlaylist(vidLink, vidType, outputDir!,
+          updateProgressFn: (double progress) =>
+              setState(() => downloadedProgress = progress));
 
     if (!isSuccessful)
       showAppDialog(
@@ -279,6 +287,26 @@ class _HomeState extends State<Home> {
         "خِزانة",
         style: TextStyle(fontSize: 48, fontWeight: FontWeight.w700),
       ),
+    );
+  }
+
+  Row ProgressBar() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        downloadedProgress != null
+            ? Text("جاري تحميل القائمة ${(downloadedProgress! * 100).round()}%",
+                style: SmallTxt)
+            : Text("جاري التحميل المقطع", style: SmallTxt),
+        HorizontalSpace(8),
+        Container(
+          width: 450,
+          child: LinearProgressIndicator(
+            value: downloadedProgress,
+            minHeight: 10,
+          ),
+        ),
+      ],
     );
   }
 }

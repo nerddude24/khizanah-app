@@ -1,6 +1,6 @@
 import "package:flutter/material.dart";
-import "package:khizanah/pages/home.dart";
-import "package:khizanah/pages/themes.dart";
+import "package:khizanah/src/home.dart";
+import "package:khizanah/src/theme.dart";
 
 void main() {
   runApp(const App());
