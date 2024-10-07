@@ -3,6 +3,7 @@ import "dart:io";
 import "package:file_picker/file_picker.dart";
 import "package:flutter/material.dart";
 import "package:khizanah/src/logic.dart";
+import "package:package_info_plus/package_info_plus.dart";
 import "package:path_provider/path_provider.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
@@ -18,6 +19,7 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
+  String appVersion = "";
   String? outputDir = "";
   String vidLink = "";
   DownloadType vidType = DownloadType.Video;
@@ -35,23 +37,34 @@ class _HomeState extends State<Home> {
         backgroundColor: Color(0xff1a1c1e),
         appBar: HomeAppBar(),
         floatingActionButton: FolderPickerFloatingButton(),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              YtLinkTextField(),
-              VerticalSpace(10),
-              VidTypeInput(),
-              VerticalSpace(50),
-              currentState == AppState.Downloading
-                  ? ProgressBar()
-                  : SubmitButton(),
-              VerticalSpace(10),
-              Text("$outputDir :إلى",
-                  textDirection: TextDirection.ltr, style: SmallTxt),
-            ],
+        body: Stack(children: [
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                YtLinkTextField(),
+                VerticalSpace(10),
+                VidTypeInput(),
+                VerticalSpace(50),
+                currentState == AppState.Downloading
+                    ? ProgressBar()
+                    : SubmitButton(),
+                VerticalSpace(15),
+                Text("$outputDir :إلى",
+                    textDirection: TextDirection.ltr,
+                    style: XSmallTxt.copyWith(fontWeight: FontWeight.w200)),
+              ],
+            ),
           ),
-        ),
+          Positioned(
+            right: 10,
+            bottom: 10,
+            child: Text(
+              appVersion,
+              style: XSmallTxt.copyWith(color: Colors.white12),
+            ),
+          )
+        ]),
       ),
     );
   }
@@ -62,9 +75,14 @@ class _HomeState extends State<Home> {
 
   void setup() async {
     isSetup = true;
+
+    // Download folder setup
     final SharedPreferencesAsync prefs = SharedPreferencesAsync();
     final String? prevSelectedDir = await prefs.getString("output_dir");
     final Directory? platformDownloadDir = await getDownloadsDirectory();
+
+    // App version display setup
+    final packageInfo = await PackageInfo.fromPlatform();
 
     setState(() {
       // set download dir as prev selected dir if possible.
@@ -73,6 +91,8 @@ class _HomeState extends State<Home> {
       // it will abort and alert the user.
       outputDir =
           prevSelectedDir != null ? prevSelectedDir : platformDownloadDir?.path;
+
+      appVersion = packageInfo.version;
     });
   }
 
