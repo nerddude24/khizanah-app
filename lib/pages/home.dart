@@ -53,6 +53,10 @@ class _HomeState extends State<Home> {
     );
   }
 
+  bool canInput() {
+    return currentState == AppState.WaitingForInput;
+  }
+
   void setup() async {
     isSetup = true;
     final SharedPreferencesAsync prefs = SharedPreferencesAsync();
@@ -74,7 +78,7 @@ class _HomeState extends State<Home> {
       currentState = AppState.Downloading;
     });
 
-// check if link is valid and if it's audio or video.
+    // check if link is valid and if it's audio or video.
     final linkType = analyzeYouTubeLink(vidLink);
     // used for later displays.
     bool isSuccessful;
@@ -82,9 +86,9 @@ class _HomeState extends State<Home> {
     if (linkType == YouTubeLinkType.unknown)
       isSuccessful = false;
     else if (linkType == YouTubeLinkType.video)
-      isSuccessful = await downloadVideo(vidLink, vidType, outputDir!);
+      isSuccessful = await startDownloadVideo(vidLink, vidType, outputDir!);
     else
-      isSuccessful = await downloadPlaylist(vidLink, vidType, outputDir!);
+      isSuccessful = await startDownloadPlaylist(vidLink, vidType, outputDir!);
 
     if (!isSuccessful)
       showAppDialog(
@@ -98,7 +102,7 @@ class _HomeState extends State<Home> {
   }
 
   void onDownloadBtnClick() async {
-    if (currentState != AppState.WaitingForInput) return;
+    if (!canInput()) return;
     // check if link is empty.
     if (vidLink.trim() == "") return;
 
@@ -161,8 +165,7 @@ class _HomeState extends State<Home> {
   }
 
   void startSelectDownloadFolder() async {
-    if (currentState != AppState.WaitingForInput) return;
-    currentState = AppState.SelectingDownloadFolder;
+    setState(() => currentState = AppState.SelectingDownloadFolder);
 
     final SharedPreferencesAsync prefs = SharedPreferencesAsync();
     final String? SelectedDir = await FilePicker.platform.getDirectoryPath(
@@ -179,12 +182,12 @@ class _HomeState extends State<Home> {
       });
     }
 
-    currentState = AppState.WaitingForInput;
+    setState(() => currentState = AppState.WaitingForInput);
   }
 
   FloatingActionButton FolderPickerFloatingButton() {
     return FloatingActionButton(
-      onPressed: startSelectDownloadFolder,
+      onPressed: canInput() ? startSelectDownloadFolder : null,
       child: Icon(Icons.folder_sharp),
       backgroundColor: Colors.black45,
       foregroundColor: Colors.white,
@@ -196,30 +199,15 @@ class _HomeState extends State<Home> {
   }
 
   ElevatedButton SubmitButton() {
-    final isEnabled = currentState == AppState.WaitingForInput;
     return ElevatedButton(
-      onPressed: isEnabled ? onDownloadBtnClick : null,
-      child: Text(isEnabled ? "تحميل" : "يتم التحميل...", style: MediumTxt),
+      onPressed: canInput() ? onDownloadBtnClick : null,
+      child: Text(canInput() ? "تحميل" : "...", style: MediumTxt),
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.red[700],
         surfaceTintColor: Colors.black,
         padding: EdgeInsets.fromLTRB(60, 20, 60, 20),
         elevation: 24,
       ),
-    );
-  }
-
-  Row VidTypeInput() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text("تحميل على هيئة: ", style: SmallTxt),
-        HorizontalSpace(20),
-        Text("فيديو", style: SmallTxt),
-        VidTypeRadio(DownloadType.Video),
-        Text("صوتية", style: SmallTxt),
-        VidTypeRadio(DownloadType.Audio),
-      ],
     );
   }
 
@@ -246,11 +234,25 @@ class _HomeState extends State<Home> {
             borderRadius: BorderRadius.all(Radius.circular(16)),
           ),
         ),
-        onChanged: (value) => setState(() {
-          vidLink = value;
-          currentState = AppState.WaitingForInput;
-        }),
+        enabled: canInput(),
+        onChanged: (val) => setState(() => vidLink = val),
       ),
+    );
+  }
+
+  Row VidTypeInput() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text("تحميل على هيئة: ", style: SmallTxt),
+        HorizontalSpace(20),
+        Text("فيديو", style: SmallTxt),
+        VidTypeRadio(DownloadType.Video),
+        Text("صوتية", style: SmallTxt),
+        VidTypeRadio(DownloadType.Audio),
+        Text("فيديو بدون صوت (جودة عالية)", style: SmallTxt),
+        VidTypeRadio(DownloadType.VideoNoAudio),
+      ],
     );
   }
 
@@ -261,12 +263,9 @@ class _HomeState extends State<Home> {
       hoverColor: Colors.red.withAlpha(30),
       focusColor: Colors.red.withAlpha(30),
       fillColor: WidgetStatePropertyAll(Colors.red),
-      onChanged: (DownloadType? val) {
-        setState(() {
-          vidType = val!;
-          currentState = AppState.WaitingForInput;
-        });
-      },
+      onChanged: canInput()
+          ? (DownloadType? val) => setState(() => vidType = val!)
+          : null,
     );
   }
 

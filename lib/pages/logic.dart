@@ -5,7 +5,7 @@ import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 enum YouTubeLinkType { video, playlist, unknown }
 
 // 'Video' is both video and audio, while 'Audio' is audio-only.
-enum DownloadType { Video, Audio }
+enum DownloadType { Video, VideoNoAudio, Audio }
 
 YouTubeLinkType analyzeYouTubeLink(String url) {
   Uri uri;
@@ -18,7 +18,6 @@ YouTubeLinkType analyzeYouTubeLink(String url) {
   // Check for video links
   if (uri.host == 'youtu.be' ||
       uri.pathSegments.contains('watch') ||
-      uri.pathSegments.contains('v') ||
       uri.pathSegments.contains('embed')) {
     return YouTubeLinkType.video;
   }
@@ -32,20 +31,25 @@ YouTubeLinkType analyzeYouTubeLink(String url) {
   return YouTubeLinkType.unknown;
 }
 
-// returns a boolean based on success.
-Future<bool> downloadVideo(
-    String url, DownloadType vidType, String outputDir) async {
-  final YoutubeExplode yt = YoutubeExplode();
-
+Future<bool> download(
+    YoutubeExplode yt, String url, DownloadType vidType, String outputDir,
+    {Video? vid}) async {
   try {
-    final video = await yt.videos.get(url);
+    Video video;
+    if (vid != null)
+      video = vid;
+    else
+      video = await yt.videos.get(url);
+
     final streamManifest = await yt.videos.streamsClient.getManifest(video.id);
     StreamInfo streamInfo;
 
     if (vidType == DownloadType.Video)
       streamInfo = streamManifest.muxed.withHighestBitrate();
-    else
+    else if (vidType == DownloadType.Audio)
       streamInfo = streamManifest.audioOnly.withHighestBitrate();
+    else
+      streamInfo = streamManifest.videoOnly.withHighestBitrate();
 
     // Get the actual stream
     final stream = yt.videos.streamsClient.get(streamInfo);
@@ -70,64 +74,36 @@ Future<bool> downloadVideo(
     // Close the file.
     await fileStream.flush();
     await fileStream.close();
+    return true;
   } catch (_) {
-    // Todo: log errors
-
-    yt.close();
     return false;
   }
-
-  yt.close();
-  return true;
 }
 
-Future<bool> downloadPlaylist(
+Future<bool> startDownloadVideo(
+    String url, DownloadType vidType, String outputDir) async {
+  final YoutubeExplode yt = YoutubeExplode();
+
+  final result = await download(yt, url, vidType, outputDir);
+
+  yt.close();
+  return result;
+}
+
+Future<bool> startDownloadPlaylist(
     String url, DownloadType vidType, String outputDir) async {
   final YoutubeExplode yt = YoutubeExplode();
 
   try {
     final playlist = await yt.playlists.get(url);
-    final path = "$outputDir/${playlist.title}";
-    Directory(path).createSync();
+    final playlistOutputDir = "$outputDir/${playlist.title}";
+    if (!Directory(playlistOutputDir).existsSync())
+      Directory(playlistOutputDir).createSync();
 
     await for (final video in yt.playlists.getVideos(playlist.id)) {
-      final streamManifest =
-          await yt.videos.streamsClient.getManifest(video.id);
-      StreamInfo streamInfo;
-
-      if (vidType == DownloadType.Video)
-        streamInfo = streamManifest.muxed.withHighestBitrate();
-      else
-        streamInfo = streamManifest.audioOnly.withHighestBitrate();
-
-      // Get the actual stream
-      final stream = yt.videos.streamsClient.get(streamInfo);
-
-      // Set the path
-      final fileName = "${video.title}.${streamInfo.container.name}";
-      final fullPath = "$path/$fileName";
-
-      // Open a file for writing and check if it already exists.
-      final file = File(fullPath);
-      if (file.existsSync()) {
-        if (file.lengthSync() == streamInfo.size.totalBytes)
-          return true;
-        else
-          file.deleteSync();
-      }
-
-      final fileStream = file.openWrite();
-
-      // Pipe all the content of the stream into the file.
-      await stream.pipe(fileStream);
-
-      // Close the file.
-      await fileStream.flush();
-      await fileStream.close();
+      await download(yt, url, vidType, playlistOutputDir, vid: video);
     }
-  } catch (_) {
-    // Todo: log errors
-
+  } catch (err) {
     yt.close();
     return false;
   }
