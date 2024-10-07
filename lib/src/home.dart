@@ -235,7 +235,7 @@ class _HomeState extends State<Home> {
         decoration: InputDecoration(
           filled: true,
           fillColor: Colors.black,
-          hintText: "رابط المقطع أو السلسلة على اليوتيوب",
+          hintText: "رابط المقطع أو قائمة التشغيل على اليوتيوب",
           hintTextDirection: TextDirection.rtl,
           border: OutlineInputBorder(
             borderSide: new BorderSide(color: Colors.black12),
