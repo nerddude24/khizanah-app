@@ -61,7 +61,9 @@ Future<bool> download(
 
     // Set the path
     final String fileExtension = streamInfo.container.name;
-    final String fileName = "${video.title}.$fileExtension";
+    final String highQualityfileName =
+        vidType == DownloadType.VideoNoAudio ? " جودة عالية" : "";
+    final String fileName = "${video.title}$highQualityfileName.$fileExtension";
     final String cleanedFileName = cleanFromInvalidFileSystemChars(
         fileName); // replace all invalid windows chars with underscores
     final String fullPath;
