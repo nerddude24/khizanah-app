@@ -7,6 +7,10 @@ enum YouTubeLinkType { video, playlist, unknown }
 // 'Video' is both video and audio, while 'Audio' is audio-only.
 enum DownloadType { Video, VideoNoAudio, Audio }
 
+String cleanFromInvalidFileSystemChars(String str) {
+  return str.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+}
+
 YouTubeLinkType analyzeYouTubeLink(String url) {
   Uri uri;
   try {
@@ -41,9 +45,10 @@ Future<bool> download(
     else
       video = await yt.videos.get(url);
 
-    final streamManifest = await yt.videos.streamsClient.getManifest(video.id);
-    StreamInfo streamInfo;
+    final StreamManifest streamManifest =
+        await yt.videos.streamsClient.getManifest(video.id);
 
+    StreamInfo streamInfo;
     if (vidType == DownloadType.Video)
       streamInfo = streamManifest.muxed.withHighestBitrate();
     else if (vidType == DownloadType.Audio)
@@ -55,19 +60,26 @@ Future<bool> download(
     final stream = yt.videos.streamsClient.get(streamInfo);
 
     // Set the path
-    final fileExtension = streamInfo.container.name;
-    final fileName = "${video.title}.$fileExtension";
-    final fullPath = "$outputDir/$fileName";
+    final String fileExtension = streamInfo.container.name;
+    final String fileName = "${video.title}.$fileExtension";
+    final String cleanedFileName = cleanFromInvalidFileSystemChars(
+        fileName); // replace all invalid windows chars with underscores
+    final String fullPath;
+
+    if (Platform.isWindows)
+      fullPath = "$outputDir\\$cleanedFileName";
+    else
+      fullPath = "$outputDir/$cleanedFileName";
 
     // Open file with the full path.
-    final file = File(fullPath);
+    final File file = File(fullPath);
 
     if (await file.exists() &&
         await file.length() >= streamInfo.size.totalBytes)
       return true; // video of this quality or higher is already downloaded.
 
     // Pipe all the content of the stream into the file.
-    final fileStream = file.openWrite(mode: FileMode.writeOnly);
+    final IOSink fileStream = file.openWrite(mode: FileMode.writeOnly);
     await stream.pipe(fileStream);
 
     // Close the file.
@@ -83,7 +95,7 @@ Future<bool> startDownloadVideo(
     String url, DownloadType vidType, String outputDir) async {
   final YoutubeExplode yt = YoutubeExplode();
 
-  final result = await download(yt, url, vidType, outputDir);
+  final bool result = await download(yt, url, vidType, outputDir);
 
   yt.close();
   return result;
@@ -97,7 +109,10 @@ Future<bool> startDownloadPlaylist(
 
   try {
     final Playlist playlist = await yt.playlists.get(url);
-    final String playlistOutputDir = "$outputDir/${playlist.title}";
+    final String playlistFolderName =
+        cleanFromInvalidFileSystemChars(playlist.title);
+    final String playlistOutputDir = "$outputDir/$playlistFolderName";
+
     if (!Directory(playlistOutputDir).existsSync())
       Directory(playlistOutputDir).createSync();
 
