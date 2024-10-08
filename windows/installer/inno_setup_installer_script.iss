@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "خزانة"
-#define MyAppVersion "1.0.1"
+#define MyAppVersion "1.0.2"
 #define MyAppPublisher "nerddude24"
 #define MyAppURL "https://github.com/nerddude24/khizanah-app"
 #define MyAppExeName "khizanah.exe"
@@ -34,7 +34,7 @@ InfoBeforeFile=before_install.txt
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 OutputDir=..\..\build\windows\installer
-OutputBaseFilename=WINDOWS-khizanah-1.0.1
+OutputBaseFilename=WINDOWS-khizanah-1.0.2
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
