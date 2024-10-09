@@ -74,8 +74,17 @@ Future<ExitCode> _runYTDLPcmd(List<String> args) async {
     mode: ProcessStartMode.detachedWithStdio,
   );
 
-  // wait for the process to finish
-  final isErred = await process.stderr.length > 0;
+  // wait for the process to finish, other futures can be used.
+  await process.stderr.length;
+
+  // run another process but this time in normal mode to see if there were any errors.
+  // this might seem stupid (running yt-dlp twice), but this is the only solution i found
+  // that both 1. shows the cmd windows and 2. gets you the exit code.
+  // also, if the files are already downloaded, yt-dlp will skip them so this shouldn't take very long.
+  final verificationProcess =
+      await Process.run(pathToYTDLP, [...args], runInShell: true);
+
+  final isErred = verificationProcess.exitCode != 0;
   return isErred ? ExitCode.ytdlp_err : ExitCode.success;
 }
 

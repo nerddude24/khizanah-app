@@ -121,11 +121,27 @@ class _HomeState extends State<Home> {
       downloadExitCode =
           await startDownloadPlaylist(vidLink, vidType, outputDir!);
 
-    // Todo: add switch cases for the exit codes.
-    if (downloadExitCode != ExitCode.success)
-      showAppDialog("حدث خطأ أثناء التحميل",
-          "رجاءًا تأكد من رابط المقطع ومن الإنترنت. $downloadExitCode");
-    else
+    if (downloadExitCode != ExitCode.success) {
+      String errMsg;
+
+      switch (downloadExitCode) {
+        case ExitCode.ffmpeg_not_installed:
+          errMsg =
+              "رجاءا قم بتحميل \nffmpeg و ffprobe\n لإمكانية تحميل المقاطع العالية الجودة!";
+          break;
+        case ExitCode.invalid_vid_type:
+          errMsg = "حدث خلل غير متوقع، رجاءًا قم بإعادة فتح تطبيق خزانة.";
+          break;
+        case ExitCode.link_invalid:
+          errMsg = "رجاءًا تأكد من رابط المقطع!";
+          break;
+        default:
+          errMsg = "رجاءًا تأكد من رابط المقطع ومن الإنترنت!";
+          break;
+      }
+
+      showAppDialog("حدث خطأ أثناء التحميل", errMsg);
+    } else
       showAppDialog("الحمد لله", "تم تحميل المقاطع بنجاح!", buttons: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
@@ -188,6 +204,7 @@ class _HomeState extends State<Home> {
         ),
         content: Text(
           desc,
+          textDirection: TextDirection.rtl,
           style: SmallTxt,
         ),
         actions: buttons != null
