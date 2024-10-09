@@ -1,8 +1,18 @@
+import "dart:io";
+
 import "package:flutter/material.dart";
 import "package:khizanah/src/home.dart";
+import "package:khizanah/src/logic.dart";
 import "package:khizanah/src/theme.dart";
 
-void main() {
+String pathToYTDLP = "";
+
+void main() async {
+  if (await isYTDLPInstalled() || !Platform.isWindows)
+    pathToYTDLP = "yt-dlp";
+  else
+    pathToYTDLP = "${Platform.resolvedExecutable}\\deps\\yt-dlp.exe";
+
   runApp(const App());
 }
 

@@ -106,21 +106,20 @@ class _HomeState extends State<Home> {
     // check if link is valid and if it's audio or video.
     final linkType = analyzeYouTubeLink(vidLink);
     // used for later displays.
-    bool isSuccessful;
+    ExitCode downloadExitCode;
     setState(() => downloadedProgress = null);
 
     if (linkType == YouTubeLinkType.unknown)
-      isSuccessful = false;
+      downloadExitCode = ExitCode.link_invalid;
     else if (linkType == YouTubeLinkType.video)
-      isSuccessful = await startDownloadVideo(vidLink, vidType, outputDir!);
+      downloadExitCode = await startDownloadVideo(vidLink, vidType, outputDir!);
     else
-      isSuccessful = await startDownloadPlaylist(vidLink, vidType, outputDir!,
-          updateProgressFn: (double progress) =>
-              setState(() => downloadedProgress = progress));
+      downloadExitCode =
+          await startDownloadPlaylist(vidLink, vidType, outputDir!);
 
-    if (!isSuccessful)
-      showAppDialog(
-          "حدث خطأ أثناء التحميل", "رجاءًا تأكد من رابط المقطع ومن الإنترنت.");
+    if (downloadExitCode != ExitCode.success)
+      showAppDialog("حدث خطأ أثناء التحميل",
+          "رجاءًا تأكد من رابط المقطع ومن الإنترنت. $downloadExitCode");
     else
       showAppDialog("الحمد لله", "تم تحميل المقطع بنجاح!");
 
