@@ -27,8 +27,7 @@ class _HomeState extends State<Home> {
   bool isSetup = false;
   AppState currentState = AppState.WaitingForInput;
 
-  // if it's null the progress bar will become indeterminate (repeating scroll animation)
-  double? downloadedProgress = null;
+  bool isSubmitBtnHovered = false;
 
   @override
   Widget build(BuildContext context) {
@@ -107,7 +106,6 @@ class _HomeState extends State<Home> {
     final linkType = analyzeYouTubeLink(vidLink);
     // used for later displays.
     ExitCode downloadExitCode;
-    setState(() => downloadedProgress = null);
 
     if (linkType == YouTubeLinkType.unknown)
       downloadExitCode = ExitCode.link_invalid;
@@ -117,11 +115,12 @@ class _HomeState extends State<Home> {
       downloadExitCode =
           await startDownloadPlaylist(vidLink, vidType, outputDir!);
 
+    // Todo: add switch cases for the exit codes.
     if (downloadExitCode != ExitCode.success)
       showAppDialog("حدث خطأ أثناء التحميل",
           "رجاءًا تأكد من رابط المقطع ومن الإنترنت. $downloadExitCode");
     else
-      showAppDialog("الحمد لله", "تم تحميل المقطع بنجاح!");
+      showAppDialog("الحمد لله", "تم تحميل المقاطع بنجاح!");
 
     setState(() => currentState = AppState.WaitingForInput);
   }
@@ -219,15 +218,32 @@ class _HomeState extends State<Home> {
     );
   }
 
-  ElevatedButton SubmitButton() {
-    return ElevatedButton(
-      onPressed: canInput() ? onDownloadBtnClick : null,
-      child: Text(canInput() ? "تحميل" : "...", style: MediumTxt),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.red[700],
-        surfaceTintColor: Colors.black,
-        padding: EdgeInsets.fromLTRB(60, 20, 60, 20),
-        elevation: 24,
+  MouseRegion SubmitButton() {
+    return MouseRegion(
+      onEnter: (_) => setState(() => isSubmitBtnHovered = true),
+      onExit: (_) => setState(() => isSubmitBtnHovered = false),
+      child: AnimatedContainer(
+        duration: Duration(milliseconds: 300),
+        decoration: BoxDecoration(
+            borderRadius: BorderRadius.all(Radius.circular(32)),
+            boxShadow: isSubmitBtnHovered
+                ? [BoxShadow(color: Colors.red.shade700, blurRadius: 20)]
+                : [
+                    BoxShadow(
+                      color: Colors.red.shade700,
+                      blurRadius: 8,
+                    )
+                  ]),
+        child: ElevatedButton(
+          onPressed: canInput() ? onDownloadBtnClick : null,
+          child: Text(canInput() ? "تحميل" : "...", style: MediumTxt),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red[700],
+            surfaceTintColor: Colors.black,
+            padding: EdgeInsets.fromLTRB(60, 20, 60, 20),
+            elevation: 24,
+          ),
+        ),
       ),
     );
   }
@@ -262,17 +278,27 @@ class _HomeState extends State<Home> {
   }
 
   Row VidTypeInput() {
+    final getTxtColor =
+        (vtype) => vtype == vidType ? Colors.white : Colors.white54;
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text("تحميل على هيئة: ", style: SmallTxt),
         HorizontalSpace(20),
-        Text("فيديو", style: SmallTxt),
+        Text("فيديو",
+            style: SmallTxt.copyWith(color: getTxtColor(DownloadType.Video))),
         VidTypeRadio(DownloadType.Video),
-        Text("صوتية", style: SmallTxt),
-        VidTypeRadio(DownloadType.Audio),
-        Text("فيديو جودة عالية (بدون صوت)", style: SmallTxt),
+        Text("فيديو",
+            style: SmallTxt.copyWith(color: getTxtColor(DownloadType.VideoHD))),
+        HorizontalSpace(5),
+        Icon(
+          Icons.hd_outlined,
+          color: getTxtColor(DownloadType.VideoHD),
+        ),
         VidTypeRadio(DownloadType.VideoHD),
+        Text("صوتية",
+            style: SmallTxt.copyWith(color: getTxtColor(DownloadType.Audio))),
+        VidTypeRadio(DownloadType.Audio),
       ],
     );
   }
@@ -307,15 +333,12 @@ class _HomeState extends State<Home> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        downloadedProgress != null
-            ? Text("جاري تحميل القائمة ${(downloadedProgress! * 100).round()}%",
-                style: SmallTxt)
-            : Text("جاري التحميل المقطع", style: SmallTxt),
+        Text("جاري التحميل المقاطع", style: SmallTxt),
         HorizontalSpace(8),
         Container(
           width: 450,
           child: LinearProgressIndicator(
-            value: downloadedProgress,
+            value: null,
             minHeight: 10,
           ),
         ),
