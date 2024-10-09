@@ -8,6 +8,8 @@ import "package:path_provider/path_provider.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
 import "package:khizanah/src/theme.dart";
+import "package:url_launcher/url_launcher.dart";
+import "package:url_launcher/url_launcher_string.dart";
 
 enum AppState { WaitingForInput, SelectingDownloadFolder, Downloading }
 
@@ -62,9 +64,13 @@ class _HomeState extends State<Home> {
           Positioned(
             right: 10,
             bottom: 10,
-            child: Text(
-              appVersion,
-              style: XSmallTxt.copyWith(color: Colors.white12),
+            child: TextButton(
+              child: Text(
+                appVersion,
+                style: XSmallTxt.copyWith(color: Colors.white12),
+              ),
+              onPressed: () => launchUrl(
+                  Uri.https("github.com", "nerddude24/khizanah-app/releases")),
             ),
           )
         ]),
@@ -120,7 +126,23 @@ class _HomeState extends State<Home> {
       showAppDialog("حدث خطأ أثناء التحميل",
           "رجاءًا تأكد من رابط المقطع ومن الإنترنت. $downloadExitCode");
     else
-      showAppDialog("الحمد لله", "تم تحميل المقاطع بنجاح!");
+      showAppDialog("الحمد لله", "تم تحميل المقاطع بنجاح!", buttons: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text("تمام", style: SmallTxt.copyWith(color: Colors.green)),
+          style: TextButton.styleFrom(
+              padding: EdgeInsets.fromLTRB(20, 15, 20, 15)),
+        ),
+        TextButton(
+          onPressed: () async {
+            Navigator.of(context).pop();
+            await launchUrlString(outputDir!);
+          },
+          child: Text("إظهار الخزانة", style: SmallTxt),
+          style: TextButton.styleFrom(
+              padding: EdgeInsets.fromLTRB(20, 15, 20, 15)),
+        )
+      ]);
 
     setState(() => currentState = AppState.WaitingForInput);
   }
@@ -223,7 +245,7 @@ class _HomeState extends State<Home> {
       onEnter: (_) => setState(() => isSubmitBtnHovered = true),
       onExit: (_) => setState(() => isSubmitBtnHovered = false),
       child: AnimatedContainer(
-        duration: Duration(milliseconds: 300),
+        duration: Duration(milliseconds: 200),
         decoration: BoxDecoration(
             borderRadius: BorderRadius.all(Radius.circular(32)),
             boxShadow: isSubmitBtnHovered
@@ -231,7 +253,8 @@ class _HomeState extends State<Home> {
                 : [
                     BoxShadow(
                       color: Colors.red.shade700,
-                      blurRadius: 8,
+                      blurRadius: 6,
+                      spreadRadius: 1,
                     )
                   ]),
         child: ElevatedButton(
