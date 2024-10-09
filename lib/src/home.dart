@@ -273,7 +273,7 @@ class _HomeState extends State<Home> {
         Text("صوتية", style: SmallTxt),
         VidTypeRadio(DownloadType.Audio),
         Text("فيديو جودة عالية (بدون صوت)", style: SmallTxt),
-        VidTypeRadio(DownloadType.VideoNoAudio),
+        VidTypeRadio(DownloadType.VideoHD),
       ],
     );
   }
