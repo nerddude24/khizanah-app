@@ -4,8 +4,9 @@
 #define MyAppName "خزانة"
 #define MyAppVersion "2.0.0"
 #define MyAppPublisher "nerddude24"
-#define MyAppURL "https://github.com/nerddude24"
+#define MyAppURL "https://github.com/nerddude24/khizanah-app"
 #define MyAppExeName "khizanah.exe"
+#define BuildDir "..\..\build\windows"
 
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application. Do not use the same AppId value in installers for other applications.
@@ -28,11 +29,11 @@ ArchitecturesAllowed=x64compatible
 ; the 64-bit view of the registry.
 ArchitecturesInstallIn64BitMode=x64compatible
 DisableProgramGroupPage=yes
-InfoBeforeFile=C:\dev\khizanah-app-main\windows\installer\before_install.txt
+InfoBeforeFile=before_install.txt
 ; Remove the following line to run in administrative install mode (install for all users.)
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
-OutputDir=C:\dev\khizanah-app-main\build\windows\installer
+OutputDir=..\..\build\windows\installer
 OutputBaseFilename=WINDOWS-khizanah-2.0.0
 Compression=lzma
 SolidCompression=yes
@@ -45,10 +46,10 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "C:\dev\khizanah-app-main\build\windows\x64\runner\Release\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\dev\khizanah-app-main\build\windows\x64\runner\Release\data\*"; DestDir: "{app}\data"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "C:\dev\khizanah-app-main\build\windows\x64\runner\Release\flutter_windows.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\dev\khizanah-app-main\deps\yt-dlp.exe"; DestDir: "{app}\deps"; Flags: ignoreversion
+Source: "{#BuildDir}\x64\runner\Release\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#BuildDir}\x64\runner\Release\data\*"; DestDir: "{app}\data"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#BuildDir}\x64\runner\Release\flutter_windows.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\deps\yt-dlp.exe"; DestDir: "{app}\deps"; Flags: ignoreversion
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
