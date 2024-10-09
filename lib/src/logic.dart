@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:khizanah/main.dart';
-import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
 enum YouTubeLinkType { video, playlist, unknown }
 
@@ -45,7 +44,7 @@ Future<bool> isYTDLPInstalled() async {
 YouTubeLinkType analyzeYouTubeLink(String url) {
   Uri uri;
   try {
-    uri = Uri.parse(url);
+    uri = Uri.parse(url.trim());
   } catch (e) {
     return YouTubeLinkType.unknown;
   }
@@ -68,15 +67,16 @@ YouTubeLinkType analyzeYouTubeLink(String url) {
 }
 
 Future<ExitCode> _runYTDLPcmd(List<String> args) async {
-  // this shows a cmd windows with the progress.
+  // this shows a cmd window with the progress.
   final process = await Process.start(
     'cmd',
-    ['/c', 'start', 'cmd', '/k', pathToYTDLP, ...args],
-    mode: ProcessStartMode.detached,
+    ["/c", pathToYTDLP, ...args],
+    mode: ProcessStartMode.detachedWithStdio,
   );
 
   // wait for the process to finish
-  return await process.exitCode == 0 ? ExitCode.success : ExitCode.ytdlp_err;
+  final isErred = await process.stderr.length > 0;
+  return isErred ? ExitCode.ytdlp_err : ExitCode.success;
 }
 
 Future<ExitCode> _download(
@@ -89,28 +89,37 @@ Future<ExitCode> _download(
 
     switch (vidType) {
       case DownloadType.Audio:
-        final fullPath = "$outputDir$slash%(title)s صوتية.%(ext)s";
-        // ! Temp args = ['-f', '"ba"', '-o', '"$fullPath"', url];
-        args = ["-F", url];
+        args = [
+          "-f",
+          "139/ba",
+          "-o",
+          "$outputDir$slash%(title)s صوتية.%(ext)s",
+          url
+        ];
+        // args = ["-F", url];
         break;
       case DownloadType.Video:
-        final fullPath = "$outputDir$slash%(title)s.%(ext)s";
-        args = ['-f "b"' '-o "$fullPath"', url];
+        args = ["-f", "b", "-o", "$outputDir$slash%(title)s.%(ext)s", url];
         break;
       case DownloadType.VideoHD:
-        final fullPath = "$outputDir$slash%(title)s جودة عالية.%(ext)s";
-        args = ['-f "bv+ba"', '-o "$fullPath"', url];
+        args = [
+          "-f",
+          "bv+ba",
+          "-o",
+          "$outputDir$slash%(title)s جودة عالية.%(ext)s",
+          url
+        ];
         break;
       default:
         // this should be impossible to reach.
         return ExitCode.invalid_vid_type;
     }
 
-    // if (Platform.isWindows) return await _runYTDLPcmd(args);
+    if (Platform.isWindows) return await _runYTDLPcmd(args);
 
     // else if unix system:
-    final ProcessResult result =
-        await Process.run(pathToYTDLP, args, runInShell: true);
+    final ProcessResult result = await Process.run(pathToYTDLP, args,
+        runInShell: true, workingDirectory: outputDir);
     if (result.exitCode != 0) return ExitCode.ytdlp_err;
   } catch (err) {
     return ExitCode.ytdlp_err;
