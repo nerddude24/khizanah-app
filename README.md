@@ -6,6 +6,8 @@
 
 الشرط الوحيد هو عدم استعماله في المحرمات، كالموسيقى والأنمي والأفلام وغيرها مما لا يرضى الله وكذلك المشتبهات.
 
+## يمكنكم رؤية كيفية التثبيت [هنا](https://github.com/nerddude24/khizanah-app/blob/main/INSTALL.md)
+
 ![image](https://github.com/user-attachments/assets/6e773c54-1b32-4479-8ebe-22bc0f8d3da6)
 
 ## الخواص المتاحة حاليًّا
