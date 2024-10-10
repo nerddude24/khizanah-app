@@ -79,8 +79,6 @@ YouTubeLinkType analyzeYouTubeLink(String url) {
 }
 
 Future<ExitCode> _runYTDLPcmd(List<String> args) async {
-  final stopwatch = Stopwatch()..start();
-
   // this shows a cmd window with the progress.
   final process = await Process.start(
     "cmd",
@@ -91,22 +89,7 @@ Future<ExitCode> _runYTDLPcmd(List<String> args) async {
   // wait for the process to finish, other futures can be used.
   await process.stderr.length;
 
-  const THIRTY_SECONDS_IN_MILLIS = 30 * 1000;
-  // if the download phase was longer than 30 secs, that probably means the download was successful
-  // and there is no need to check.
-  if (stopwatch.elapsedMilliseconds > THIRTY_SECONDS_IN_MILLIS)
-    return ExitCode.success;
-
-  // else if the download phase was very brief, we will verify like so:
-  // run another process but this time in normal mode to see if there were any errors.
-  // this might seem stupid (running yt-dlp twice), but this is the only solution i found
-  // that both 1. shows the cmd windows and 2. gets you the exit code.
-  // also, if the files are already downloaded, yt-dlp will skip them so this shouldn't take very long.
-  final verificationProcess =
-      await Process.run(pathToYTDLP!, [...args], runInShell: true);
-
-  final isErred = verificationProcess.exitCode != 0;
-  return isErred ? ExitCode.ytdlp_err : ExitCode.success;
+  return ExitCode.success;
 }
 
 Future<ExitCode> _runYTDLPlinux(List<String> args) async {
@@ -148,10 +131,14 @@ Future<ExitCode> _download(
         return ExitCode.invalid_vid_type;
     }
 
-    // first check yt-dlp executable path.
+    // first check yt-dlp executable path if it wasn't checked already.
     pathToYTDLP = pathToYTDLP == null ? await getYTDLPPath() : pathToYTDLP;
     // if yt-dlp executable still wasn't found, err out.
     if (pathToYTDLP == null) return ExitCode.ytdlp_not_installed;
+
+    // check ffmpeg if video is hd
+    if (vidType == DownloadType.VideoHD && !await isFFmpegInstalled())
+      return ExitCode.ffmpeg_not_installed;
 
     if (Platform.isWindows)
       return await _runYTDLPcmd(args);

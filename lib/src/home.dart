@@ -104,32 +104,14 @@ class _HomeState extends State<Home> {
     });
   }
 
-  void startDownload() async {
-    setState(() => currentState = AppState.Downloading);
-
-    // check if link is valid and if it's audio or video.
-    final linkType = analyzeYouTubeLink(vidLink);
-    // used for later displays.
-    ExitCode downloadExitCode;
-
-    if (linkType == YouTubeLinkType.unknown)
-      downloadExitCode = ExitCode.link_invalid;
-    else if (linkType == YouTubeLinkType.video) {
-      showAppDialog("رجاءًا انتظر", "بدأ تحميل المقطع...");
-      downloadExitCode = await startDownloadVideo(vidLink, vidType, outputDir!);
-    } else {
-      showAppDialog("رجاءًا انتظر", "بدأ تحميل قائمة التشغيل...");
-      downloadExitCode =
-          await startDownloadPlaylist(vidLink, vidType, outputDir!);
-    }
-
-    if (downloadExitCode != ExitCode.success) {
+  void displayPopupWithExitCode(ExitCode code) {
+    if (code != ExitCode.success) {
       if (Navigator.of(context).canPop())
         Navigator.of(context).pop(); // pop other dialogs
       String errMsg;
       List<Widget> buttons = [];
 
-      switch (downloadExitCode) {
+      switch (code) {
         case ExitCode.ffmpeg_not_installed:
           errMsg =
               "رجاءا قم بتحميل ffmpeg و ffprobe لإمكانية تحميل المقاطع العالية الجودة!";
@@ -180,6 +162,25 @@ class _HomeState extends State<Home> {
           style: TextButton.styleFrom(padding: EdgeInsets.all(15)),
         )
       ]);
+  }
+
+  void startDownload() async {
+    setState(() => currentState = AppState.Downloading);
+
+    // check if link is valid and if it's audio or video.
+    final linkType = analyzeYouTubeLink(vidLink);
+
+    if (linkType == YouTubeLinkType.unknown)
+      displayPopupWithExitCode(ExitCode.link_invalid);
+    else if (linkType == YouTubeLinkType.video) {
+      showAppDialog("رجاءًا انتظر", "بدأ تحميل المقطع...");
+      startDownloadVideo(vidLink, vidType, outputDir!)
+          .then((ExitCode code) => displayPopupWithExitCode(code));
+    } else {
+      showAppDialog("رجاءًا انتظر", "بدأ تحميل قائمة التشغيل...");
+      startDownloadPlaylist(vidLink, vidType, outputDir!)
+          .then((ExitCode code) => displayPopupWithExitCode(code));
+    }
 
     setState(() => currentState = AppState.WaitingForInput);
   }
