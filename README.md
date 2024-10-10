@@ -8,7 +8,7 @@
 
 ## يمكنكم رؤية كيفية التثبيت [هنا](https://github.com/nerddude24/khizanah-app/blob/main/INSTALL.md)
 
-![image](https://github.com/user-attachments/assets/6e773c54-1b32-4479-8ebe-22bc0f8d3da6)
+![image](https://github.com/user-attachments/assets/29d1e238-1b11-4174-870b-703cab679823)
 
 ## الخواص المتاحة حاليًّا
 
