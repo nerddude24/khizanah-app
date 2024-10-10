@@ -27,7 +27,7 @@ class _HomeState extends State<Home> {
   String vidLink = "";
   DownloadType vidType = DownloadType.Video;
   AppState currentState = AppState.Setup;
-
+  String pathToYTDLP = "";
   bool isSubmitBtnHovered = false;
 
   @override
@@ -130,6 +130,9 @@ class _HomeState extends State<Home> {
         case ExitCode.ffmpeg_not_installed:
           errMsg =
               "رجاءا قم بتحميل \nffmpeg و ffprobe\n لإمكانية تحميل المقاطع العالية الجودة!";
+          break;
+        case ExitCode.ytdlp_not_installed:
+          errMsg = ""; // !temp
           break;
         case ExitCode.invalid_vid_type:
           errMsg = "حدث خلل غير متوقع، رجاءًا قم بإعادة فتح تطبيق خزانة.";

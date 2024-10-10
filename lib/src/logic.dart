@@ -1,7 +1,5 @@
 import 'dart:io';
 
-import 'package:khizanah/main.dart';
-
 enum YouTubeLinkType { video, playlist, unknown }
 
 // 'Video' is both video and audio, while 'Audio' is audio-only.
@@ -12,10 +10,13 @@ enum ExitCode {
   link_invalid,
   ffmpeg_not_installed,
   ytdlp_err,
-  invalid_vid_type
+  invalid_vid_type,
+  ytdlp_not_installed
 }
 
 final slash = Platform.isWindows ? "\\" : "/";
+
+String? pathToYTDLP = null;
 
 Future<bool> isFFmpegInstalled() async {
   try {
@@ -39,6 +40,17 @@ Future<bool> isYTDLPInstalled() async {
   } catch (e) {
     return false;
   }
+}
+
+Future<String?> getYTDLPPath() async {
+  // yt-dlp is grouped with windows version of the app only (for now).
+  if (await isYTDLPInstalled())
+    return "yt-dlp";
+  else if (Platform.isWindows &&
+      await File("${Platform.resolvedExecutable}\\deps\\yt-dlp.exe").exists())
+    return "${Platform.resolvedExecutable}\\deps\\yt-dlp.exe";
+  else
+    return null;
 }
 
 YouTubeLinkType analyzeYouTubeLink(String url) {
@@ -72,7 +84,7 @@ Future<ExitCode> _runYTDLPcmd(List<String> args) async {
   // this shows a cmd window with the progress.
   final process = await Process.start(
     "cmd",
-    ["/c", pathToYTDLP, ...args],
+    ["/c", pathToYTDLP!, ...args],
     mode: ProcessStartMode.detachedWithStdio,
   );
 
@@ -91,17 +103,21 @@ Future<ExitCode> _runYTDLPcmd(List<String> args) async {
   // that both 1. shows the cmd windows and 2. gets you the exit code.
   // also, if the files are already downloaded, yt-dlp will skip them so this shouldn't take very long.
   final verificationProcess =
-      await Process.run(pathToYTDLP, [...args], runInShell: true);
+      await Process.run(pathToYTDLP!, [...args], runInShell: true);
 
   final isErred = verificationProcess.exitCode != 0;
   return isErred ? ExitCode.ytdlp_err : ExitCode.success;
 }
 
+Future<ExitCode> _runYTDLPlinux(List<String> args) async {
+  final process = await Process.run(pathToYTDLP!, [...args], runInShell: true);
+
+  final isErred = process.exitCode != 0;
+  return isErred ? ExitCode.ytdlp_err : ExitCode.success;
+}
+
 Future<ExitCode> _download(
     String url, DownloadType vidType, String outputDir) async {
-  if (vidType == DownloadType.VideoHD && !await isFFmpegInstalled())
-    return ExitCode.ffmpeg_not_installed;
-
   try {
     List<String> args;
 
@@ -133,17 +149,18 @@ Future<ExitCode> _download(
         return ExitCode.invalid_vid_type;
     }
 
-    if (Platform.isWindows) return await _runYTDLPcmd(args);
+    // first check yt-dlp executable path.
+    pathToYTDLP = pathToYTDLP == null ? await getYTDLPPath() : pathToYTDLP;
+    // if yt-dlp executable still wasn't found, err out.
+    if (pathToYTDLP == null) return ExitCode.ytdlp_not_installed;
 
-    // else if unix system:
-    final ProcessResult result = await Process.run(pathToYTDLP, args,
-        runInShell: true, workingDirectory: outputDir);
-    if (result.exitCode != 0) return ExitCode.ytdlp_err;
+    if (Platform.isWindows)
+      return await _runYTDLPcmd(args);
+    else
+      return await _runYTDLPlinux(args);
   } catch (err) {
     return ExitCode.ytdlp_err;
   }
-
-  return ExitCode.success;
 }
 
 Future<ExitCode> startDownloadVideo(
