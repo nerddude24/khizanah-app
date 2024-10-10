@@ -91,13 +91,13 @@ Future<ExitCode> _runYTDLPcmd(List<String> args) async {
   // wait for the process to finish, other futures can be used.
   await process.stderr.length;
 
-  const TWO_MINUTES_IN_MILLIS = 2 * 60 * 1000;
-  // if the download phase was long, that probably means the download was successful
+  const THIRTY_SECONDS_IN_MILLIS = 30 * 1000;
+  // if the download phase was longer than 30 secs, that probably means the download was successful
   // and there is no need to check.
-  if (stopwatch.elapsedMilliseconds > TWO_MINUTES_IN_MILLIS)
+  if (stopwatch.elapsedMilliseconds > THIRTY_SECONDS_IN_MILLIS)
     return ExitCode.success;
 
-  // else if the download phase didn't take too long,
+  // else if the download phase was very brief, we will verify like so:
   // run another process but this time in normal mode to see if there were any errors.
   // this might seem stupid (running yt-dlp twice), but this is the only solution i found
   // that both 1. shows the cmd windows and 2. gets you the exit code.
@@ -130,7 +130,6 @@ Future<ExitCode> _download(
           "$outputDir$slash%(title)s صوتية.%(ext)s",
           url
         ];
-        // args = ["-F", url];
         break;
       case DownloadType.Video:
         args = ["-f", "b", "-o", "$outputDir$slash%(title)s.%(ext)s", url];

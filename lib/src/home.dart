@@ -124,15 +124,33 @@ class _HomeState extends State<Home> {
     }
 
     if (downloadExitCode != ExitCode.success) {
+      if (Navigator.of(context).canPop())
+        Navigator.of(context).pop(); // pop other dialogs
       String errMsg;
+      List<Widget> buttons = [];
 
       switch (downloadExitCode) {
         case ExitCode.ffmpeg_not_installed:
           errMsg =
-              "رجاءا قم بتحميل \nffmpeg و ffprobe\n لإمكانية تحميل المقاطع العالية الجودة!";
+              "رجاءا قم بتحميل ffmpeg و ffprobe لإمكانية تحميل المقاطع العالية الجودة!";
+          buttons = [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text("تمام", style: SmallTxt.copyWith(color: Colors.red)),
+              style: TextButton.styleFrom(padding: EdgeInsets.all(20)),
+            ),
+            TextButton(
+              onPressed: () => launchUrl(Uri.https("github.com",
+                  "nerddude24/khizanah-app/blob/main/INSTALL.md")),
+              child: Text("كيفية التثبيت",
+                  style: SmallTxt.copyWith(color: Colors.white)),
+              style: TextButton.styleFrom(padding: EdgeInsets.all(20)),
+            ),
+          ];
           break;
         case ExitCode.ytdlp_not_installed:
-          errMsg = ""; // !temp
+          errMsg =
+              "لم يتم العثور على برنامج yt-dlp!\n رجاءًا قم بإعادة تثبيت تطبيق خزانة، أو قم بتثبيت برنامج yt-dlp بنفسك.";
           break;
         case ExitCode.invalid_vid_type:
           errMsg = "حدث خلل غير متوقع، رجاءًا قم بإعادة فتح تطبيق خزانة.";
@@ -145,14 +163,13 @@ class _HomeState extends State<Home> {
           break;
       }
 
-      showAppDialog("حدث خطأ أثناء التحميل", errMsg);
+      showAppDialog("حدث خطأ أثناء التحميل", errMsg, buttons: buttons);
     } else
       showAppDialog("الحمد لله", "تم تحميل المقاطع بنجاح!", buttons: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: Text("تمام", style: SmallTxt.copyWith(color: Colors.green)),
-          style: TextButton.styleFrom(
-              padding: EdgeInsets.fromLTRB(20, 15, 20, 15)),
+          style: TextButton.styleFrom(padding: EdgeInsets.all(20)),
         ),
         TextButton(
           onPressed: () async {
@@ -160,8 +177,7 @@ class _HomeState extends State<Home> {
             await launchUrlString(outputDir!);
           },
           child: Text("إظهار الخزانة", style: SmallTxt),
-          style: TextButton.styleFrom(
-              padding: EdgeInsets.fromLTRB(20, 15, 20, 15)),
+          style: TextButton.styleFrom(padding: EdgeInsets.all(15)),
         )
       ]);
 
@@ -379,11 +395,13 @@ class _HomeState extends State<Home> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Column(
-          children: [
-            Text("جاري التحميل", style: SmallTxt),
-            Text("يمكنكم التتبع في النافذة التي ظهرت",
-                style: SmallTxt.copyWith(fontSize: 14)),
-          ],
+          children: Platform.isWindows
+              ? [
+                  Text("جاري التحميل", style: SmallTxt),
+                  Text("يمكنكم التتبع في النافذة التي ظهرت",
+                      style: SmallTxt.copyWith(fontSize: 14))
+                ]
+              : [Text("جاري التحميل", style: SmallTxt)],
         ),
         HorizontalSpace(50),
         Container(
