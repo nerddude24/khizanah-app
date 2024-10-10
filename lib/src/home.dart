@@ -8,8 +8,10 @@ import "package:path_provider/path_provider.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
 import "package:khizanah/src/theme.dart";
+import "package:url_launcher/url_launcher.dart";
+import "package:url_launcher/url_launcher_string.dart";
 
-enum AppState { WaitingForInput, SelectingDownloadFolder, Downloading }
+enum AppState { Setup, WaitingForInput, SelectingDownloadFolder, Downloading }
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -24,15 +26,13 @@ class _HomeState extends State<Home> {
   String? outputDir = "";
   String vidLink = "";
   DownloadType vidType = DownloadType.Video;
-  bool isSetup = false;
-  AppState currentState = AppState.WaitingForInput;
-
-  // if it's null the progress bar will become indeterminate (repeating scroll animation)
-  double? downloadedProgress = null;
+  AppState currentState = AppState.Setup;
+  String pathToYTDLP = "";
+  bool isSubmitBtnHovered = false;
 
   @override
   Widget build(BuildContext context) {
-    if (!isSetup) setup();
+    if (currentState == AppState.Setup) setup();
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -52,7 +52,7 @@ class _HomeState extends State<Home> {
                 currentState == AppState.Downloading
                     ? ProgressBar()
                     : SubmitButton(),
-                VerticalSpace(15),
+                VerticalSpace(30),
                 Text("$outputDir :إلى",
                     textDirection: TextDirection.ltr,
                     style: XSmallTxt.copyWith(fontWeight: FontWeight.w200)),
@@ -63,9 +63,13 @@ class _HomeState extends State<Home> {
           Positioned(
             right: 10,
             bottom: 10,
-            child: Text(
-              appVersion,
-              style: XSmallTxt.copyWith(color: Colors.white12),
+            child: TextButton(
+              child: Text(
+                appVersion,
+                style: XSmallTxt.copyWith(color: Colors.white24),
+              ),
+              onPressed: () => launchUrl(
+                  Uri.https("github.com", "nerddude24/khizanah-app/releases")),
             ),
           )
         ]),
@@ -78,8 +82,6 @@ class _HomeState extends State<Home> {
   }
 
   void setup() async {
-    isSetup = true;
-
     // Download folder setup
     final SharedPreferencesAsync prefs = SharedPreferencesAsync();
     final String? prevSelectedDir = await prefs.getString("output_dir");
@@ -97,7 +99,69 @@ class _HomeState extends State<Home> {
           prevSelectedDir != null ? prevSelectedDir : platformDownloadDir?.path;
 
       appVersion = packageInfo.version;
+
+      currentState = AppState.WaitingForInput;
     });
+  }
+
+  void displayPopupWithExitCode(ExitCode code) {
+    if (code != ExitCode.success) {
+      if (Navigator.of(context).canPop())
+        Navigator.of(context).pop(); // pop other dialogs
+      String errMsg;
+      List<Widget> buttons = [];
+
+      switch (code) {
+        case ExitCode.ffmpeg_not_installed:
+          errMsg =
+              "رجاءا قم بتحميل ffmpeg و ffprobe لإمكانية تحميل المقاطع العالية الجودة!";
+          buttons = [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text("تمام", style: SmallTxt.copyWith(color: Colors.red)),
+              style: TextButton.styleFrom(padding: EdgeInsets.all(20)),
+            ),
+            TextButton(
+              onPressed: () => launchUrl(Uri.https("github.com",
+                  "nerddude24/khizanah-app/blob/main/INSTALL.md")),
+              child: Text("كيفية التثبيت",
+                  style: SmallTxt.copyWith(color: Colors.white)),
+              style: TextButton.styleFrom(padding: EdgeInsets.all(20)),
+            ),
+          ];
+          break;
+        case ExitCode.ytdlp_not_installed:
+          errMsg =
+              "لم يتم العثور على برنامج yt-dlp!\n رجاءًا قم بإعادة تثبيت تطبيق خزانة، أو قم بتثبيت برنامج yt-dlp بنفسك.";
+          break;
+        case ExitCode.invalid_vid_type:
+          errMsg = "حدث خلل غير متوقع، رجاءًا قم بإعادة فتح تطبيق خزانة.";
+          break;
+        case ExitCode.link_invalid:
+          errMsg = "رجاءًا تأكد من رابط المقطع!";
+          break;
+        default:
+          errMsg = "رجاءًا تأكد من رابط المقطع ومن الإنترنت!";
+          break;
+      }
+
+      showAppDialog("حدث خطأ أثناء التحميل", errMsg, buttons: buttons);
+    } else
+      showAppDialog("الحمد لله", "تم تحميل المقاطع بنجاح!", buttons: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text("تمام", style: SmallTxt.copyWith(color: Colors.green)),
+          style: TextButton.styleFrom(padding: EdgeInsets.all(20)),
+        ),
+        TextButton(
+          onPressed: () async {
+            Navigator.of(context).pop();
+            await launchUrlString(outputDir!);
+          },
+          child: Text("إظهار الخزانة", style: SmallTxt),
+          style: TextButton.styleFrom(padding: EdgeInsets.all(15)),
+        )
+      ]);
   }
 
   void startDownload() async {
@@ -105,24 +169,18 @@ class _HomeState extends State<Home> {
 
     // check if link is valid and if it's audio or video.
     final linkType = analyzeYouTubeLink(vidLink);
-    // used for later displays.
-    bool isSuccessful;
-    setState(() => downloadedProgress = null);
 
     if (linkType == YouTubeLinkType.unknown)
-      isSuccessful = false;
-    else if (linkType == YouTubeLinkType.video)
-      isSuccessful = await startDownloadVideo(vidLink, vidType, outputDir!);
-    else
-      isSuccessful = await startDownloadPlaylist(vidLink, vidType, outputDir!,
-          updateProgressFn: (double progress) =>
-              setState(() => downloadedProgress = progress));
-
-    if (!isSuccessful)
-      showAppDialog(
-          "حدث خطأ أثناء التحميل", "رجاءًا تأكد من رابط المقطع ومن الإنترنت.");
-    else
-      showAppDialog("الحمد لله", "تم تحميل المقطع بنجاح!");
+      displayPopupWithExitCode(ExitCode.link_invalid);
+    else if (linkType == YouTubeLinkType.video) {
+      showAppDialog("رجاءًا انتظر", "بدأ تحميل المقطع...");
+      startDownloadVideo(vidLink, vidType, outputDir!)
+          .then((ExitCode code) => displayPopupWithExitCode(code));
+    } else {
+      showAppDialog("رجاءًا انتظر", "بدأ تحميل قائمة التشغيل...");
+      startDownloadPlaylist(vidLink, vidType, outputDir!)
+          .then((ExitCode code) => displayPopupWithExitCode(code));
+    }
 
     setState(() => currentState = AppState.WaitingForInput);
   }
@@ -168,6 +226,7 @@ class _HomeState extends State<Home> {
         ),
         content: Text(
           desc,
+          textDirection: TextDirection.rtl,
           style: SmallTxt,
         ),
         actions: buttons != null
@@ -175,7 +234,7 @@ class _HomeState extends State<Home> {
             : [
                 TextButton(
                   child: Text(
-                    "حسنا",
+                    "تمام",
                     style: SmallTxt.copyWith(color: Colors.red),
                   ),
                   onPressed: () => Navigator.of(context).pop(),
@@ -220,15 +279,33 @@ class _HomeState extends State<Home> {
     );
   }
 
-  ElevatedButton SubmitButton() {
-    return ElevatedButton(
-      onPressed: canInput() ? onDownloadBtnClick : null,
-      child: Text(canInput() ? "تحميل" : "...", style: MediumTxt),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.red[700],
-        surfaceTintColor: Colors.black,
-        padding: EdgeInsets.fromLTRB(60, 20, 60, 20),
-        elevation: 24,
+  MouseRegion SubmitButton() {
+    return MouseRegion(
+      onEnter: (_) => setState(() => isSubmitBtnHovered = true),
+      onExit: (_) => setState(() => isSubmitBtnHovered = false),
+      child: AnimatedContainer(
+        duration: Duration(milliseconds: 200),
+        decoration: BoxDecoration(
+            borderRadius: BorderRadius.all(Radius.circular(32)),
+            boxShadow: isSubmitBtnHovered
+                ? [BoxShadow(color: Colors.red.shade700, blurRadius: 20)]
+                : [
+                    BoxShadow(
+                      color: Colors.red.shade700,
+                      blurRadius: 6,
+                      spreadRadius: 1,
+                    )
+                  ]),
+        child: ElevatedButton(
+          onPressed: canInput() ? onDownloadBtnClick : null,
+          child: Text(canInput() ? "تحميل" : "...", style: MediumTxt),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red[700],
+            surfaceTintColor: Colors.black,
+            padding: EdgeInsets.fromLTRB(60, 20, 60, 20),
+            elevation: 24,
+          ),
+        ),
       ),
     );
   }
@@ -263,17 +340,27 @@ class _HomeState extends State<Home> {
   }
 
   Row VidTypeInput() {
+    final getTxtColor =
+        (vtype) => vtype == vidType ? Colors.white : Colors.white54;
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text("تحميل على هيئة: ", style: SmallTxt),
         HorizontalSpace(20),
-        Text("فيديو", style: SmallTxt),
+        Text("فيديو",
+            style: SmallTxt.copyWith(color: getTxtColor(DownloadType.Video))),
         VidTypeRadio(DownloadType.Video),
-        Text("صوتية", style: SmallTxt),
+        Text("فيديو",
+            style: SmallTxt.copyWith(color: getTxtColor(DownloadType.VideoHD))),
+        HorizontalSpace(5),
+        Icon(
+          Icons.hd_outlined,
+          color: getTxtColor(DownloadType.VideoHD),
+        ),
+        VidTypeRadio(DownloadType.VideoHD),
+        Text("صوتية",
+            style: SmallTxt.copyWith(color: getTxtColor(DownloadType.Audio))),
         VidTypeRadio(DownloadType.Audio),
-        Text("فيديو جودة عالية (بدون صوت)", style: SmallTxt),
-        VidTypeRadio(DownloadType.VideoNoAudio),
       ],
     );
   }
@@ -308,15 +395,20 @@ class _HomeState extends State<Home> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        downloadedProgress != null
-            ? Text("جاري تحميل القائمة ${(downloadedProgress! * 100).round()}%",
-                style: SmallTxt)
-            : Text("جاري التحميل المقطع", style: SmallTxt),
-        HorizontalSpace(8),
+        Column(
+          children: Platform.isWindows
+              ? [
+                  Text("جاري التحميل", style: SmallTxt),
+                  Text("يمكنكم التتبع في النافذة التي ظهرت",
+                      style: SmallTxt.copyWith(fontSize: 14))
+                ]
+              : [Text("جاري التحميل", style: SmallTxt)],
+        ),
+        HorizontalSpace(50),
         Container(
-          width: 450,
+          width: 400,
           child: LinearProgressIndicator(
-            value: downloadedProgress,
+            value: null,
             minHeight: 10,
           ),
         ),

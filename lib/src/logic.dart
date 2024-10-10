@@ -1,20 +1,62 @@
 import 'dart:io';
 
-import 'package:youtube_explode_dart/youtube_explode_dart.dart';
-
 enum YouTubeLinkType { video, playlist, unknown }
 
 // 'Video' is both video and audio, while 'Audio' is audio-only.
-enum DownloadType { Video, VideoNoAudio, Audio }
+enum DownloadType { Video, VideoHD, Audio }
 
-String cleanFromInvalidFileSystemChars(String str) {
-  return str.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+enum ExitCode {
+  success,
+  link_invalid,
+  ffmpeg_not_installed,
+  ytdlp_err,
+  invalid_vid_type,
+  ytdlp_not_installed
+}
+
+final slash = Platform.isWindows ? "\\" : "/";
+
+String? pathToYTDLP = null;
+
+Future<bool> isFFmpegInstalled() async {
+  try {
+    // Run the ffmpeg command with the -version flag to check if it's installed
+    ProcessResult result = await Process.run('ffmpeg', ['-version']);
+
+    // Check the exit code; a 0 exit code means the command was successful
+    return result.exitCode == 0;
+  } catch (e) {
+    return false;
+  }
+}
+
+Future<bool> isYTDLPInstalled() async {
+  try {
+    // Run the ffmpeg command with the -version flag to check if it's installed
+    ProcessResult result = await Process.run('yt-dlp', ['--version']);
+
+    // Check the exit code; a 0 exit code means the command was successful
+    return result.exitCode == 0;
+  } catch (e) {
+    return false;
+  }
+}
+
+Future<String?> getYTDLPPath() async {
+  // yt-dlp is grouped with windows version of the app only (for now).
+  if (await isYTDLPInstalled())
+    return "yt-dlp";
+  else if (Platform.isWindows &&
+      await File("${Platform.resolvedExecutable}\\deps\\yt-dlp.exe").exists())
+    return "${Platform.resolvedExecutable}\\deps\\yt-dlp.exe";
+  else
+    return null;
 }
 
 YouTubeLinkType analyzeYouTubeLink(String url) {
   Uri uri;
   try {
-    uri = Uri.parse(url);
+    uri = Uri.parse(url.trim());
   } catch (e) {
     return YouTubeLinkType.unknown;
   }
@@ -22,7 +64,8 @@ YouTubeLinkType analyzeYouTubeLink(String url) {
   // Check for video links
   if (uri.host == 'youtu.be' ||
       uri.pathSegments.contains('watch') ||
-      uri.pathSegments.contains('embed')) {
+      uri.pathSegments.contains('embed') ||
+      uri.pathSegments.contains('shorts')) {
     return YouTubeLinkType.video;
   }
 
@@ -35,103 +78,84 @@ YouTubeLinkType analyzeYouTubeLink(String url) {
   return YouTubeLinkType.unknown;
 }
 
-Future<bool> download(
-    YoutubeExplode yt, String url, DownloadType vidType, String outputDir,
-    {Video? vid}) async {
+Future<ExitCode> _runYTDLPcmd(List<String> args) async {
+  // this shows a cmd window with the progress.
+  final process = await Process.start(
+    "cmd",
+    ["/c", pathToYTDLP!, ...args],
+    mode: ProcessStartMode.detachedWithStdio,
+  );
+
+  // wait for the process to finish, other futures can be used.
+  await process.stderr.length;
+
+  return ExitCode.success;
+}
+
+Future<ExitCode> _runYTDLPlinux(List<String> args) async {
+  final process = await Process.run(pathToYTDLP!, [...args], runInShell: true);
+
+  final isErred = process.exitCode != 0;
+  return isErred ? ExitCode.ytdlp_err : ExitCode.success;
+}
+
+Future<ExitCode> _download(
+    String url, DownloadType vidType, String outputDir) async {
   try {
-    Video video;
-    if (vid != null)
-      video = vid;
-    else
-      video = await yt.videos.get(url);
+    List<String> args;
 
-    final StreamManifest streamManifest =
-        await yt.videos.streamsClient.getManifest(video.id);
+    switch (vidType) {
+      case DownloadType.Audio:
+        args = [
+          "-f",
+          "139/ba",
+          "-o",
+          "$outputDir$slash%(title)s صوتية.%(ext)s",
+          url
+        ];
+        break;
+      case DownloadType.Video:
+        args = ["-f", "b", "-o", "$outputDir$slash%(title)s.%(ext)s", url];
+        break;
+      case DownloadType.VideoHD:
+        args = [
+          "-f",
+          "bv+ba",
+          "-o",
+          "$outputDir$slash%(title)s جودة عالية.%(ext)s",
+          url
+        ];
+        break;
+      default:
+        // this should be impossible to reach.
+        return ExitCode.invalid_vid_type;
+    }
 
-    StreamInfo streamInfo;
-    if (vidType == DownloadType.Video)
-      streamInfo = streamManifest.muxed.withHighestBitrate();
-    else if (vidType == DownloadType.Audio)
-      streamInfo = streamManifest.audioOnly.withHighestBitrate();
-    else
-      streamInfo = streamManifest.videoOnly.withHighestBitrate();
+    // first check yt-dlp executable path if it wasn't checked already.
+    pathToYTDLP = pathToYTDLP == null ? await getYTDLPPath() : pathToYTDLP;
+    // if yt-dlp executable still wasn't found, err out.
+    if (pathToYTDLP == null) return ExitCode.ytdlp_not_installed;
 
-    // Get the actual stream
-    final stream = yt.videos.streamsClient.get(streamInfo);
-
-    // Set the path
-    final String fileExtension = streamInfo.container.name;
-    final String highQualityfileName =
-        vidType == DownloadType.VideoNoAudio ? " جودة عالية" : "";
-    final String fileName = "${video.title}$highQualityfileName.$fileExtension";
-    final String cleanedFileName = cleanFromInvalidFileSystemChars(
-        fileName); // replace all invalid windows chars with underscores
-    final String fullPath;
+    // check ffmpeg if video is hd
+    if (vidType == DownloadType.VideoHD && !await isFFmpegInstalled())
+      return ExitCode.ffmpeg_not_installed;
 
     if (Platform.isWindows)
-      fullPath = "$outputDir\\$cleanedFileName";
+      return await _runYTDLPcmd(args);
     else
-      fullPath = "$outputDir/$cleanedFileName";
-
-    // Open file with the full path.
-    final File file = File(fullPath);
-
-    if (await file.exists() &&
-        await file.length() >= streamInfo.size.totalBytes)
-      return true; // video of this quality or higher is already downloaded.
-
-    // Pipe all the content of the stream into the file.
-    final IOSink fileStream = file.openWrite(mode: FileMode.writeOnly);
-    await stream.pipe(fileStream);
-
-    // Close the file.
-    await fileStream.flush();
-    await fileStream.close();
-    return true;
+      return await _runYTDLPlinux(args);
   } catch (err) {
-    return false;
+    return ExitCode.ytdlp_err;
   }
 }
 
-Future<bool> startDownloadVideo(
+Future<ExitCode> startDownloadVideo(
     String url, DownloadType vidType, String outputDir) async {
-  final YoutubeExplode yt = YoutubeExplode();
-
-  final bool result = await download(yt, url, vidType, outputDir);
-
-  yt.close();
-  return result;
+  return _download(url, vidType, outputDir);
 }
 
-Future<bool> startDownloadPlaylist(
-    String url, DownloadType vidType, String outputDir,
-    {required Function(double progress) updateProgressFn}) async {
-  final YoutubeExplode yt = YoutubeExplode();
-  updateProgressFn(0);
-
-  try {
-    final Playlist playlist = await yt.playlists.get(url);
-    final String playlistFolderName =
-        cleanFromInvalidFileSystemChars(playlist.title);
-    final String playlistOutputDir = "$outputDir/$playlistFolderName";
-
-    if (!Directory(playlistOutputDir).existsSync())
-      Directory(playlistOutputDir).createSync();
-
-    final int? playlistSize = playlist.videoCount;
-    int downloaded = 0;
-    await for (final video in yt.playlists.getVideos(playlist.id)) {
-      await download(yt, url, vidType, playlistOutputDir, vid: video);
-
-      // progress bar
-      downloaded++;
-      if (playlistSize != null) updateProgressFn(downloaded / playlistSize);
-    }
-  } catch (err) {
-    yt.close();
-    return false;
-  }
-
-  yt.close();
-  return true;
+Future<ExitCode> startDownloadPlaylist(
+    String url, DownloadType vidType, String outputDir) async {
+  // append the playlist's title to the outputDir.
+  return _download(url, vidType, "$outputDir$slash%(playlist)s");
 }
