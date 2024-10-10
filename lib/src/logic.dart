@@ -67,9 +67,11 @@ YouTubeLinkType analyzeYouTubeLink(String url) {
 }
 
 Future<ExitCode> _runYTDLPcmd(List<String> args) async {
+  final stopwatch = Stopwatch()..start();
+
   // this shows a cmd window with the progress.
   final process = await Process.start(
-    'cmd',
+    "cmd",
     ["/c", pathToYTDLP, ...args],
     mode: ProcessStartMode.detachedWithStdio,
   );
@@ -77,6 +79,13 @@ Future<ExitCode> _runYTDLPcmd(List<String> args) async {
   // wait for the process to finish, other futures can be used.
   await process.stderr.length;
 
+  const TWO_MINUTES_IN_MILLIS = 2 * 60 * 1000;
+  // if the download phase was long, that probably means the download was successful
+  // and there is no need to check.
+  if (stopwatch.elapsedMilliseconds > TWO_MINUTES_IN_MILLIS)
+    return ExitCode.success;
+
+  // else if the download phase didn't take too long,
   // run another process but this time in normal mode to see if there were any errors.
   // this might seem stupid (running yt-dlp twice), but this is the only solution i found
   // that both 1. shows the cmd windows and 2. gets you the exit code.

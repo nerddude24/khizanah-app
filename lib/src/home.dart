@@ -11,7 +11,7 @@ import "package:khizanah/src/theme.dart";
 import "package:url_launcher/url_launcher.dart";
 import "package:url_launcher/url_launcher_string.dart";
 
-enum AppState { WaitingForInput, SelectingDownloadFolder, Downloading }
+enum AppState { Setup, WaitingForInput, SelectingDownloadFolder, Downloading }
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -26,14 +26,13 @@ class _HomeState extends State<Home> {
   String? outputDir = "";
   String vidLink = "";
   DownloadType vidType = DownloadType.Video;
-  bool isSetup = false;
-  AppState currentState = AppState.WaitingForInput;
+  AppState currentState = AppState.Setup;
 
   bool isSubmitBtnHovered = false;
 
   @override
   Widget build(BuildContext context) {
-    if (!isSetup) setup();
+    if (currentState == AppState.Setup) setup();
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -53,7 +52,7 @@ class _HomeState extends State<Home> {
                 currentState == AppState.Downloading
                     ? ProgressBar()
                     : SubmitButton(),
-                VerticalSpace(15),
+                VerticalSpace(30),
                 Text("$outputDir :إلى",
                     textDirection: TextDirection.ltr,
                     style: XSmallTxt.copyWith(fontWeight: FontWeight.w200)),
@@ -67,7 +66,7 @@ class _HomeState extends State<Home> {
             child: TextButton(
               child: Text(
                 appVersion,
-                style: XSmallTxt.copyWith(color: Colors.white12),
+                style: XSmallTxt.copyWith(color: Colors.white24),
               ),
               onPressed: () => launchUrl(
                   Uri.https("github.com", "nerddude24/khizanah-app/releases")),
@@ -83,8 +82,6 @@ class _HomeState extends State<Home> {
   }
 
   void setup() async {
-    isSetup = true;
-
     // Download folder setup
     final SharedPreferencesAsync prefs = SharedPreferencesAsync();
     final String? prevSelectedDir = await prefs.getString("output_dir");
@@ -102,6 +99,8 @@ class _HomeState extends State<Home> {
           prevSelectedDir != null ? prevSelectedDir : platformDownloadDir?.path;
 
       appVersion = packageInfo.version;
+
+      currentState = AppState.WaitingForInput;
     });
   }
 
@@ -115,11 +114,14 @@ class _HomeState extends State<Home> {
 
     if (linkType == YouTubeLinkType.unknown)
       downloadExitCode = ExitCode.link_invalid;
-    else if (linkType == YouTubeLinkType.video)
+    else if (linkType == YouTubeLinkType.video) {
+      showAppDialog("رجاءًا انتظر", "بدأ تحميل المقطع...");
       downloadExitCode = await startDownloadVideo(vidLink, vidType, outputDir!);
-    else
+    } else {
+      showAppDialog("رجاءًا انتظر", "بدأ تحميل قائمة التشغيل...");
       downloadExitCode =
           await startDownloadPlaylist(vidLink, vidType, outputDir!);
+    }
 
     if (downloadExitCode != ExitCode.success) {
       String errMsg;
@@ -212,7 +214,7 @@ class _HomeState extends State<Home> {
             : [
                 TextButton(
                   child: Text(
-                    "حسنا",
+                    "تمام",
                     style: SmallTxt.copyWith(color: Colors.red),
                   ),
                   onPressed: () => Navigator.of(context).pop(),
@@ -373,10 +375,16 @@ class _HomeState extends State<Home> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Text("جاري التحميل المقاطع", style: SmallTxt),
-        HorizontalSpace(8),
+        Column(
+          children: [
+            Text("جاري التحميل", style: SmallTxt),
+            Text("يمكنكم التتبع في النافذة التي ظهرت",
+                style: SmallTxt.copyWith(fontSize: 14)),
+          ],
+        ),
+        HorizontalSpace(50),
         Container(
-          width: 450,
+          width: 400,
           child: LinearProgressIndicator(
             value: null,
             minHeight: 10,
