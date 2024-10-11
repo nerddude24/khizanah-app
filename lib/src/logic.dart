@@ -44,11 +44,12 @@ Future<bool> isYTDLPInstalled() async {
 
 Future<String?> getYTDLPPath() async {
   // yt-dlp is grouped with windows version of the app only (for now).
-  if (await isYTDLPInstalled())
+  final winYTDLPDir = "${Platform.resolvedExecutable}\\..\\deps\\yt-dlp.exe";
+  if (Platform.isWindows &&
+      await File(winYTDLPDir).exists())
+    return winYTDLPDir;
+  else if (await isYTDLPInstalled())
     return "yt-dlp";
-  else if (Platform.isWindows &&
-      await File("${Platform.resolvedExecutable}\\deps\\yt-dlp.exe").exists())
-    return "${Platform.resolvedExecutable}\\deps\\yt-dlp.exe";
   else
     return null;
 }
