@@ -11,7 +11,8 @@ enum ExitCode {
   ffmpeg_not_installed,
   ytdlp_err,
   invalid_vid_type,
-  ytdlp_not_installed
+  ytdlp_not_installed,
+  no_valid_linux_terminal_found
 }
 
 final slash = Platform.isWindows ? "\\" : "/";
@@ -45,8 +46,7 @@ Future<bool> isYTDLPInstalled() async {
 Future<String?> getYTDLPPath() async {
   // yt-dlp is grouped with windows version of the app only (for now).
   final winYTDLPDir = "${Platform.resolvedExecutable}\\..\\deps\\yt-dlp.exe";
-  if (Platform.isWindows &&
-      await File(winYTDLPDir).exists())
+  if (Platform.isWindows && await File(winYTDLPDir).exists())
     return winYTDLPDir;
   else if (await isYTDLPInstalled())
     return "yt-dlp";
@@ -93,11 +93,52 @@ Future<ExitCode> _runYTDLPcmd(List<String> args) async {
   return ExitCode.success;
 }
 
-Future<ExitCode> _runYTDLPlinux(List<String> args) async {
-  final process = await Process.run(pathToYTDLP!, [...args], runInShell: true);
+Future<String?> launchLinuxTerminal() async {
+  // List of common terminal emulators
+  final terminals = [
+    'x-terminal-emulator', // Debian/Ubuntu default
+    'gnome-terminal', // GNOME
+    'konsole', // KDE
+    'xfce4-terminal', // XFCE
+    'xterm', // Fallback option
+  ];
 
-  final isErred = process.exitCode != 0;
-  return isErred ? ExitCode.ytdlp_err : ExitCode.success;
+  for (final terminal in terminals) {
+    try {
+      final result = await Process.run('which', [terminal]);
+      if (result.exitCode == 0) {
+        return terminal;
+      }
+    } catch (e) {
+      // Ignore errors and try the next terminal
+    }
+  }
+
+  // If no terminal was found
+  return null;
+}
+
+Future<ExitCode> _runYTDLPlinux(List<String> args) async {
+  final terminal = await launchLinuxTerminal();
+  if (terminal == null) {
+    print("no valid linux terminal found, running in the background...");
+
+    final process =
+        await Process.run(pathToYTDLP!, [...args], runInShell: true);
+
+    final isErred = process.exitCode != 0;
+    return isErred ? ExitCode.ytdlp_err : ExitCode.success;
+  } else {
+    // this shows a terminal window with the progress.
+    final process = await Process.start(terminal,
+        ['--', 'sh', '-c', "$pathToYTDLP ${args.join(' ')}; exec bash"],
+        mode: ProcessStartMode.detachedWithStdio);
+
+    // wait for the process to finish, other futures can be used.
+    await process.stderr.length;
+
+    return ExitCode.success;
+  }
 }
 
 Future<ExitCode> _download(
