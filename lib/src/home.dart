@@ -105,9 +105,10 @@ class _HomeState extends State<Home> {
   }
 
   void displayPopupWithExitCode(ExitCode code) {
+    if (Navigator.of(context).canPop())
+      Navigator.of(context).pop(); // pop other dialogs
+
     if (code != ExitCode.success) {
-      if (Navigator.of(context).canPop())
-        Navigator.of(context).pop(); // pop other dialogs
       String errMsg;
       List<Widget> buttons = [];
 
@@ -156,7 +157,10 @@ class _HomeState extends State<Home> {
         TextButton(
           onPressed: () async {
             Navigator.of(context).pop();
-            await launchUrlString(outputDir!);
+            if (Platform.isWindows)
+              await launchUrlString(outputDir!);
+            else
+              await launchUrlString("file://" + outputDir!);
           },
           child: Text("إظهار الخزانة", style: SmallTxt),
           style: TextButton.styleFrom(padding: EdgeInsets.all(15)),
